@@ -131,17 +131,38 @@ const handleStepClick = (stepId: string, stepTitle: string) => {
     return next;
   });
 };
+// ################
+// FOR SAVING TIME
+// ################
+// Perform check
+const canSaveTime = (step: typeof stepData[string] | undefined) => {
+  if (!step) return false;
 
-// FOR SAVING TIME NEW
+  const hasValidManual =
+    step.manualFrom &&
+    step.manualTo &&
+    step.manualFrom !== step.manualTo;
+
+  const hasValidTimer =
+    (step.timerEvents?.length ?? 0) >= 2;
+
+  return Boolean(hasValidManual || hasValidTimer);
+};
+// Save time
 const saveTime = async (stepId: string, source: 'timer' | 'manual') => {
+    const step = stepData[stepId];
+
+  if (!canSaveTime(step)) {
+    console.warn('[saveTime] blocked – no valid time data');
+    return;
+  }
+
   // 1️⃣ Run the appropriate save method
   if (source === 'timer') {
     saveTimerTime(stepId);
   } else {
     saveManualTime(stepId);
   }
-
-  const step = stepData[stepId];
   const userId = localStorage.getItem('userId') || 'pseudo-user-123';
 
   if (!step) {
@@ -171,16 +192,42 @@ const saveTime = async (stepId: string, source: 'timer' | 'manual') => {
   }
 
   // 3️⃣ Reset the timer for next run
-  updateStepData(stepId, {
-    isRunning: false,
-    startTime: undefined,
-    pausedTime: 0,
-    timerEvents: [],
-    showTimer: false,
-  });
+  resetStepTime(stepId);
+  // updateStepData(stepId, {
+  //   isRunning: false,
+  //   startTime: undefined,
+  //   pausedTime: 0,
+  //   timerEvents: [],
+  //   showTimer: false,
+  // });
 
   // 4️⃣ Optional debug
   console.log('[saveTime] completed', stepId);
+};
+const resetStepTime = (stepId: string) => {
+  setStepData(prev => ({
+    ...prev,
+    [stepId]: {
+      ...prev[stepId],
+
+      // timer
+      startTime: undefined,
+      pausedTime: 0,
+      isRunning: false,
+      timerEvents: [],
+
+      // manual
+      manualDate: undefined,
+      manualFrom: undefined,
+      manualTo: undefined,
+      manualBreakFrom: undefined,
+      manualBreakTo: undefined,
+
+      showManualTime: false,
+    }
+  }));
+
+  console.log('[resetStepTime] cleared state for', stepId);
 };
 
 
