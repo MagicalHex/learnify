@@ -3,6 +3,7 @@ import Roadmap from '../models/Roadmap';
 
 const router = express.Router();
 
+// POST TIME
 router.post('/saveStepTime', async (req, res) => {
   try {
     const { userId, stepId, roadmapId, timerEvents, manualFrom, manualTo, manualBreakFrom, manualBreakTo, pausedTime } = req.body;
@@ -43,7 +44,7 @@ if (!step) return res.status(404).json({ message: 'Step not found' });
   }
 });
 
-// NEW route for summaries
+// POST SUMMARY
 router.post('/saveStepSummary', async (req, res) => {
   try {
     const { userId, stepId, summaryId, text, roadmapId } = req.body;
@@ -79,6 +80,72 @@ router.post('/saveStepSummary', async (req, res) => {
   } catch (err) {
     console.error('[saveStepSummary]', err);
     res.status(500).json({ message: 'Failed to save summary' });
+  }
+});
+
+// GET SUMMARIES FROM SELECTED STEP
+router.get('/getStepSummaries', async (req, res) => {
+  try {
+    const { userId, stepId, roadmapId } = req.query;
+
+    if (!userId || !stepId || !roadmapId) {
+      return res.status(400).json({ message: 'Missing required query params' });
+    }
+
+    const roadmap = await Roadmap.findOne({
+      _id: roadmapId,
+      userId: userId as string, // ensure it's treated as string
+    });
+
+    if (!roadmap) {
+      return res.status(404).json({ message: 'Roadmap not found or access denied' });
+    }
+
+    const step = roadmap.steps.find(s => s.id === stepId);
+    if (!step) {
+      return res.status(404).json({ message: 'Step not found' });
+    }
+
+    // Return summaries (default to empty array if none)
+    const summaries = step.summaries || [];
+
+    // Map to the format frontend expects
+    const formattedSummaries = summaries.map(s => ({
+      summaryId: s.id,
+      text: s.text || '',
+timestamp: s.savedAt.toISOString(),
+    }));
+
+    res.json({ summaries: formattedSummaries });
+  } catch (err) {
+    console.error('[getStepSummaries]', err);
+    res.status(500).json({ message: 'Failed to fetch summaries' });
+  }
+});
+// SAVE COMPLETION STATUS
+router.post('/saveStepCompletion', async (req, res) => {
+  try {
+    const { userId, stepId, roadmapId, completed } = req.body;
+
+    if (!userId || !stepId || !roadmapId || typeof completed !== 'boolean') {
+      return res.status(400).json({ message: 'Missing or invalid fields' });
+    }
+
+    const roadmap = await Roadmap.findOne({ _id: roadmapId, userId });
+    if (!roadmap) return res.status(404).json({ message: 'Roadmap not found or access denied' });
+
+    const step = roadmap.steps.find(s => s.id === stepId);
+    if (!step) return res.status(404).json({ message: 'Step not found' });
+
+    step.completed = completed;
+    step.markModified('steps'); // Important for nested arrays
+
+    await roadmap.save();
+
+    res.json({ message: 'Completion status saved', completed });
+  } catch (err) {
+    console.error('[saveStepCompletion]', err);
+    res.status(500).json({ message: 'Failed to save completion' });
   }
 });
 

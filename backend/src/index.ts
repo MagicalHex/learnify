@@ -17,15 +17,18 @@ app.use(cors({
 }));
 app.use(express.json());
 
+// #########
 // Routes
+// #########
+
+// ROADMAPS
 app.use('/api/roadmaps', roadmapRoutes);
 
-// app.use('/api/saveStepTime', saveStepTimeRouter);
-app.use('/api', saveStepTimeRouter);
-
-app.get('/', (req, res) => {
-  res.send('Learn App Backend Running 🐝');
-});
+// SAVE STEP ACTIONS
+app.use('/api', saveStepTimeRouter); // this now handles:
+// POST  /api/saveStepSummary
+// POST  /api/saveStepTime
+// GET   /api/getStepSummaries
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGODB_URI!)

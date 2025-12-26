@@ -13,6 +13,7 @@ interface Step {
   difficulty: number;
   estimatedTime?: string;
   link?: string; // optional for now
+  completed: boolean;
 }
 
 interface Roadmap {
@@ -32,6 +33,8 @@ interface StepSummary {
   id: string;
   text: string;
   createdAt: string;
+  savedText?: string;   // last version successfully saved to backend (optional)
+  isSaving?: boolean;   // optional: for UI feedback
 }
 
   // ---------------------
@@ -66,6 +69,10 @@ const Learn = ({ onExit }: { onExit: () => void }) => {
   const [loading, setLoading] = useState(true);
   const [selectedRoadmapId, setSelectedRoadmapId] = useState<string | null>(null);
   const [chosenStepId, setChosenStepId] = useState<string | null>(null);
+
+  // ################
+  // FOR LOADING AND DISPLAYING STEPS
+  // ################
 
 // Per-step data (much better than global shared state)
 const [stepData, setStepData] = useState<Record<string, {
@@ -124,13 +131,63 @@ const updateStepData = (stepId: string, updates: Partial<typeof stepData[string]
   }));
 };
 
+const stepRefs = useRef<{ [key: string]: HTMLLIElement | null }>({});
 // Set step id and expand step
-const handleStepClick = (stepId: string, stepTitle: string) => {
-  setChosenStepId(prev => {
-    const next = prev === stepId ? null : stepId;
-    if (next) ensureStepData(stepId, stepTitle);
-    return next;
-  });
+const handleStepClick = async (stepId: string, stepTitle: string) => {
+  const nextId = chosenStepId === stepId ? null : stepId;
+
+  if (nextId) {
+    // Only fetch if we don't already have data for this step
+    if (!stepData[stepId]) {
+      const savedSummaries = await fetchStepSummaries(stepId);
+
+      if (savedSummaries && savedSummaries.length > 0) {
+        // Load from server
+        setStepData(prev => ({
+          ...prev,
+          [stepId]: {
+            startTime: undefined,
+            pausedTime: 0,
+            isRunning: false,
+            showTimer: false,
+            summaries: savedSummaries,
+            summaryPlaceholder: getRandomSummaryPlaceholder(stepTitle),
+            completed: false, // you can also load this from backend later
+          }
+        }));
+      } else {
+        // Nothing saved → create fresh local one
+        setStepData(prev => ({
+          ...prev,
+          [stepId]: {
+            startTime: undefined,
+            pausedTime: 0,
+            isRunning: false,
+            showTimer: false,
+            summaries: [
+              {
+                id: crypto.randomUUID(),
+                text: '',
+                savedText: '', // nothing saved yet
+                createdAt: new Date().toISOString(),
+              }
+            ],
+            summaryPlaceholder: getRandomSummaryPlaceholder(stepTitle),
+            completed: false,
+          }
+        }));
+      }
+    }
+// Scroll into view smoothly
+    setTimeout(() => {
+      stepRefs.current[stepId]?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+    }, 100); // small delay to allow expand animation
+  }
+
+  setChosenStepId(nextId);
 };
 
 // ################
@@ -233,11 +290,21 @@ const resetStepTime = (stepId: string) => {
   console.log('[resetStepTime] cleared state for', stepId);
 };
 
-// Outside your component or inside with useCallback
+// SAVE SUMMARY
+const saveSummaryToBackend = async (stepId: string, summaryId: string, currentText: string, savedText: string | undefined) => {
+  const trimmed = currentText.trim();
 
-// Inside your component
-const saveSummaryToBackend = async (stepId: string, summaryId: string, text: string) => {
-  if (!text.trim()) return;
+  // Don't save if empty AND was already empty, or if text hasn't changed
+  if (trimmed.length === 0) {
+    // Optionally clear it on backend if it was previously saved?
+    // Usually better to keep old summary if user clears temporarily
+    return;
+  }
+
+  if (trimmed === savedText) {
+    // No change → do nothing
+    return;
+  }
 
   const userId = localStorage.getItem('userId') || 'pseudo-user-123';
   const roadmapId = roadmaps.find(rm => rm.steps.some(s => s.id === stepId))?.id;
@@ -247,18 +314,56 @@ const saveSummaryToBackend = async (stepId: string, summaryId: string, text: str
       userId,
       stepId,
       summaryId,
-      text: text.trim(),
+      text: trimmed,
       roadmapId,
       timestamp: Date.now(),
     });
+
+    // After success, update the savedText in state
+    setStepData(prev => ({
+      ...prev,
+      [stepId]: {
+        ...prev[stepId],
+        summaries: prev[stepId].summaries.map(s =>
+          s.id === summaryId ? { ...s, savedText: trimmed } : s
+        )
+      }
+    }));
+
     console.log('[saveSummary] saved');
   } catch (err) {
     console.error('[saveSummary] error', err);
+    // Optionally show toast/error
   }
 };
 
 // Create debounced version (2 second delay)
-const debouncedSaveSummary = useDebounce(saveSummaryToBackend, 2000);
+const debouncedSaveSummary = useDebounce(
+  (stepId: string, summaryId: string, currentText: string, savedText: string | undefined) =>
+    saveSummaryToBackend(stepId, summaryId, currentText, savedText),
+  2000
+);
+
+const saveStepCompletion = async (stepId: string, completed: boolean) => {
+  const userId = localStorage.getItem('userId') || 'pseudo-user-123';
+  const roadmapId = roadmaps.find(rm => rm.steps.some(s => s.id === stepId))?.id;
+
+  if (!roadmapId) return;
+
+  try {
+    await axios.post('http://localhost:5000/api/saveStepCompletion', {
+      userId,
+      stepId,
+      roadmapId,
+      completed,
+    });
+    console.log('[completion] saved');
+  } catch (err) {
+    console.error('[completion] save failed', err);
+    // Optional: revert local state on failure
+    // Or show toast: "Failed to save — will retry later"
+  }
+};
 
 // ################
 // Saving methods
@@ -415,8 +520,38 @@ useEffect(() => {
   return () => clearInterval(interval);
 }, []);
 
+// ################ 
+// FETCH DATA
+// ################
 
-  // Fetch real roadmaps from backend
+// Call this when clicking a step
+const fetchStepSummaries = async (stepId: string): Promise<StepSummary[] | null> => {
+  const userId = localStorage.getItem('userId') || 'pseudo-user-123';
+  const roadmapId = roadmaps.find(rm => rm.steps.some(s => s.id === stepId))?.id;
+
+  if (!roadmapId) return null;
+
+  try {
+    const response = await axios.get('http://localhost:5000/api/getStepSummaries', {
+      params: { userId, stepId, roadmapId }
+    });
+
+    if (response.data && Array.isArray(response.data.summaries) && response.data.summaries.length > 0) {
+      return response.data.summaries.map((s: any) => ({
+        id: s.summaryId,
+        text: s.text || '',
+        savedText: s.text || '', // important: mark as already saved
+        createdAt: s.timestamp || new Date().toISOString(),
+      }));
+    }
+    return null; // nothing saved yet
+  } catch (err) {
+    console.error('[fetchStepSummaries] error', err);
+    return null; // fail silently, fall back to local
+  }
+};
+
+  // FETCH REAL ROADMAPS FROM BACKEND, ON COMPONENT LOAD
   useEffect(() => {
     const fetchRoadmaps = async () => {
       try {
@@ -442,6 +577,8 @@ useEffect(() => {
   }, []);
 
   const selectedRoadmap = roadmaps.find((rm) => rm.id === selectedRoadmapId);
+
+  
 
   // ---------------------
   // SELECTED ROADMAP
@@ -497,9 +634,12 @@ useEffect(() => {
     return (
 <li
   key={step.id}
+ref={(el) => {
+    stepRefs.current[step.id] = el;  // ← Assign, but DON'T return anything
+  }}  // ← TO SCROLL INTO PLACE WHEN CLICKING STEP
   className={`p-5 rounded-xl transition
     ${
-      stepData[step.id]?.completed
+      step.completed
         ? 'border-2 border-yellow-400/40 bg-green-800/40 opacity-60'
         : isChosen || isActive
           ? 'bg-green-800/60 border-2 border-green-400'
@@ -537,23 +677,42 @@ useEffect(() => {
 <button
   onClick={(e) => {
     e.stopPropagation();
-    updateStepData(step.id, {
-      completed: !stepData[step.id]?.completed
-    });
+
+    const newCompleted = !step.completed;
+
+    // 1. Optimistic update: Update the roadmap in state (this triggers re-render with new value)
+    setRoadmaps(prevRoadmaps =>
+      prevRoadmaps.map(rm =>
+        rm.id === selectedRoadmap?.id
+          ? {
+              ...rm,
+              steps: rm.steps.map(s =>
+                s.id === step.id
+                  ? { ...s, completed: newCompleted }
+                  : s
+              )
+            }
+          : rm
+      )
+    );
+
+    // 2. Optional: Also keep stepData in sync (if you use it elsewhere)
+    updateStepData(step.id, { completed: newCompleted });
+
+    // 3. Save to backend (fire and forget — UI already updated)
+    saveStepCompletion(step.id, newCompleted);
   }}
   className={`flex flex-col items-center p-3 rounded-xl transition m-auto mb-5
-    ${
-      stepData[step.id]?.completed
-        ? 'bg-emerald-700/40 border-2 border-yellow-400/80 hover:bg-emerald-700/50'
-        : 'bg-white/10 border border-white/20 hover:bg-white/20'
-    }
-  `}
+    ${step.completed
+      ? 'bg-emerald-700/40 border-2 border-yellow-400/80 hover:bg-emerald-700/50'
+      : 'bg-white/10 border border-white/20 hover:bg-white/20'
+    }`}
 >
   <span className="text-3xl mb-1">
-    {stepData[step.id]?.completed ? '💪' : '☐'}
+    {step.completed ? '💪' : '☐'}
   </span>
   <span className="text-xs opacity-80">
-    {stepData[step.id]?.completed ? 'Completed' : 'Not completed'}
+    {step.completed ? 'Completed' : 'Not completed'}
   </span>
 </button>
 
@@ -735,33 +894,39 @@ useEffect(() => {
 onChange={(e) => {
   const value = e.target.value;
 
-  // Update local state immediately
-setStepData(prev => ({
-      ...prev,
-      [step.id]: {
-        ...prev[step.id],
-        summaries: prev[step.id].summaries.map(s =>
-          s.id === summary.id ? { ...s, text: value } : s
-        )
-      }
-    }));
+  setStepData(prev => ({
+    ...prev,
+    [step.id]: {
+      ...prev[step.id],
+      summaries: prev[step.id].summaries.map(s =>
+        s.id === summary.id ? { ...s, text: value } : s
+      )
+    }
+  }));
 
-    // Schedule save if text is not empty
-    if (value.trim().length > 0) {
-      debouncedSaveSummary(step.id, summary.id, value);
-    } else {
-      // debouncedSaveSummary.cancel(); // optional: cancel if empty
-    }
-  }}
-  onBlur={(e) => {
-    const value = e.target.value;
-    if (value.trim().length > 0) {
-      // onBlur just triggers the same debounced save
-      // If user just left quickly, it will wait 2s
-      // If they paused before leaving, it might save sooner or immediately
-      debouncedSaveSummary(step.id, summary.id, value);
-    }
-  }}
+  // Only schedule save if there's potentially something to save
+  if (value.trim().length > 0) {
+    const savedText = stepData[step.id]?.summaries.find(s => s.id === summary.id)?.savedText;
+    debouncedSaveSummary(step.id, summary.id, value, savedText);
+  }
+  // If empty, do nothing — don't cancel, just let it not trigger
+}}
+onBlur={(e) => {
+  const value = e.target.value.trim();
+
+  // Only attempt save if there's non-empty content
+  if (value.length === 0) return;
+
+  // Get the last saved version for comparison
+  const currentSummary = stepData[step.id]?.summaries.find(s => s.id === summary.id);
+  const savedText = currentSummary?.savedText;
+
+  // If text hasn't changed from what was last saved, no need to save
+  if (value === savedText) return;
+
+  // Trigger the debounced save (it will also re-check inside, but this avoids unnecessary scheduling)
+  debouncedSaveSummary(step.id, summary.id, e.target.value, savedText);
+}}
     placeholder={
       stepData[step.id]?.summaryPlaceholder ||
       "Explain this in your own words…"
