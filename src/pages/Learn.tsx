@@ -579,7 +579,6 @@ const fetchStepSummaries = async (stepId: string): Promise<StepSummary[] | null>
   const selectedRoadmap = roadmaps.find((rm) => rm.id === selectedRoadmapId);
 
   
-
   // ---------------------
   // SELECTED ROADMAP
   // ---------------------
@@ -627,26 +626,35 @@ const fetchStepSummaries = async (stepId: string): Promise<StepSummary[] | null>
 
         {/* Read-only steps list */}
 <ul className="space-y-4 mb-12">
-  {selectedRoadmap.steps.map((step) => {
-    const isActive = step.id === selectedRoadmap.currentStepId;
-    const isChosen = step.id === chosenStepId;
+{selectedRoadmap.steps.map((step, index, stepsArray) => {
+  const isActive = step.id === selectedRoadmap.currentStepId;
+  const isChosen = step.id === chosenStepId;
 
-    return (
-<li
-  key={step.id}
-ref={(el) => {
-    stepRefs.current[step.id] = el;  // ← Assign, but DON'T return anything
-  }}  // ← TO SCROLL INTO PLACE WHEN CLICKING STEP
-  className={`p-5 rounded-xl transition
-    ${
-      step.completed
-        ? 'border-2 border-yellow-400/40 bg-green-800/40 opacity-60'
-        : isChosen || isActive
-          ? 'bg-green-800/60 border-2 border-green-400'
-          : 'bg-white/5 hover:bg-white/10'
-    }
-  `}
->
+  // Find the next uncompleted step
+  const nextUncompletedIndex = stepsArray.findIndex(s => !s.completed);
+  const isNextStepActive = index === nextUncompletedIndex && !step.completed;
+
+  // Optional: fallback if all steps are completed
+  // const isNextStepActive = !step.completed && index === stepsArray.findIndex(s => !s.completed);
+
+  return (
+    <li
+      key={step.id}
+      ref={(el) => {
+        stepRefs.current[step.id] = el;
+      }}
+      className={`p-5 rounded-xl transition
+        ${
+          step.completed
+            ? 'border-2 border-yellow-400/40 bg-green-800/40 opacity-60'
+            : isChosen || isActive
+              ? 'bg-green-800/60 border-2 border-green-400'
+              : isNextStepActive
+                ? 'border-2 border-yellow-500 bg-yellow-900/30 shadow-lg shadow-yellow-500/30' // ← Gold highlight
+                : 'bg-white/5 hover:bg-white/10'
+        }
+      `}
+    >
         {/* Title area clickable (expand/close) */}
 <div
   onClick={() => handleStepClick(step.id, step.title)}
