@@ -20,6 +20,13 @@ const stepSchema = new mongoose.Schema({
       pausedTime: Number,
       savedAt: Date
     }
+  ],
+  summaries: [  // ← ADD THIS
+    {
+      id: { type: String, required: true },  // your frontend summary.id
+      text: { type: String, required: true },
+      savedAt: { type: Date, default: Date.now }
+    }
   ]
 });
 

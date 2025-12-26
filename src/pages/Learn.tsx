@@ -1,8 +1,9 @@
 // ------------------------------------------------------------
 // src/pages/Learn.tsx
 // ------------------------------------------------------------
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
+import { useDebounce } from '@/utils/debounce';
 
 // Reuse the same types as your Roadmap page (or define here if not shared)
 interface Step {
@@ -131,9 +132,11 @@ const handleStepClick = (stepId: string, stepTitle: string) => {
     return next;
   });
 };
+
 // ################
 // FOR SAVING TIME
 // ################
+
 // Perform check
 const canSaveTime = (step: typeof stepData[string] | undefined) => {
   if (!step) return false;
@@ -230,8 +233,36 @@ const resetStepTime = (stepId: string) => {
   console.log('[resetStepTime] cleared state for', stepId);
 };
 
+// Outside your component or inside with useCallback
 
+// Inside your component
+const saveSummaryToBackend = async (stepId: string, summaryId: string, text: string) => {
+  if (!text.trim()) return;
 
+  const userId = localStorage.getItem('userId') || 'pseudo-user-123';
+  const roadmapId = roadmaps.find(rm => rm.steps.some(s => s.id === stepId))?.id;
+
+  try {
+    await axios.post('http://localhost:5000/api/saveStepSummary', {
+      userId,
+      stepId,
+      summaryId,
+      text: text.trim(),
+      roadmapId,
+      timestamp: Date.now(),
+    });
+    console.log('[saveSummary] saved');
+  } catch (err) {
+    console.error('[saveSummary] error', err);
+  }
+};
+
+// Create debounced version (2 second delay)
+const debouncedSaveSummary = useDebounce(saveSummaryToBackend, 2000);
+
+// ################
+// Saving methods
+// ################
 
 // Save manually added time 2025-12-12 13.03 - 2025-12-12 14.03
 const saveManualTime = (stepId: string) => {
@@ -261,10 +292,6 @@ const saveTimerTime = (stepId: string) => {
   if (!d?.timerEvents || d.timerEvents.length === 0) return;
 
   console.log('Saving timer timestamps:', d.timerEvents);
-
-  // POST THIS to DB later
-  // start = first 'start'
-  // pauses derived from pairs
 
   updateStepData(stepId, {
     pausedTime: getElapsedTime(stepId), // keep for UI continuity
@@ -700,43 +727,52 @@ useEffect(() => {
 <div className="space-y-3">
   <p className="text-lg font-medium">What did you learn?</p>
 
-  {(stepData[step.id]?.summaries || []).map((summary) => (
-    <textarea
-      key={summary.id}
-      value={summary.text}
-      onClick={(e) => e.stopPropagation()}
-      onChange={(e) => {
-        const value = e.target.value;
-        setStepData(prev => ({
-          ...prev,
-          [step.id]: {
-            ...prev[step.id],
-            summaries: prev[step.id].summaries.map(s =>
-              s.id === summary.id ? { ...s, text: value } : s
-            )
-          }
-        }));
-      }}
-  placeholder={
-    stepData[step.id]?.summaryPlaceholder ||
-    "Explain this in your own words…"
-  }
-className="
-  w-full
-  px-4 py-4
-  rounded-xl
-  border
-  resize-y
-  bg-white/10
-  border-white/20
-  transition-all
-  duration-300
-  min-h-[80px]
-  focus:min-h-[400px]
-  focus:border-green-400/50
-"
-    />
-  ))}
+{(stepData[step.id]?.summaries || []).map((summary) => (
+  <textarea
+    key={summary.id}
+    value={summary.text}
+    onClick={(e) => e.stopPropagation()}
+onChange={(e) => {
+  const value = e.target.value;
+
+  // Update local state immediately
+setStepData(prev => ({
+      ...prev,
+      [step.id]: {
+        ...prev[step.id],
+        summaries: prev[step.id].summaries.map(s =>
+          s.id === summary.id ? { ...s, text: value } : s
+        )
+      }
+    }));
+
+    // Schedule save if text is not empty
+    if (value.trim().length > 0) {
+      debouncedSaveSummary(step.id, summary.id, value);
+    } else {
+      // debouncedSaveSummary.cancel(); // optional: cancel if empty
+    }
+  }}
+  onBlur={(e) => {
+    const value = e.target.value;
+    if (value.trim().length > 0) {
+      // onBlur just triggers the same debounced save
+      // If user just left quickly, it will wait 2s
+      // If they paused before leaving, it might save sooner or immediately
+      debouncedSaveSummary(step.id, summary.id, value);
+    }
+  }}
+    placeholder={
+      stepData[step.id]?.summaryPlaceholder ||
+      "Explain this in your own words…"
+    }
+    className="
+      w-full p-2 rounded-xl border resize-y
+      bg-white/10 border-white/20 transition-all duration-300
+      min-h-[50px] focus:min-h-[400px] focus:border-green-400/50
+    "
+  />
+))}
 </div>
 
   </div>

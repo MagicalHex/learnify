@@ -3,7 +3,7 @@ import Roadmap from '../models/Roadmap';
 
 const router = express.Router();
 
-router.post('/', async (req, res) => {
+router.post('/saveStepTime', async (req, res) => {
   try {
     const { userId, stepId, roadmapId, timerEvents, manualFrom, manualTo, manualBreakFrom, manualBreakTo, pausedTime } = req.body;
 
@@ -40,6 +40,45 @@ if (!step) return res.status(404).json({ message: 'Step not found' });
   } catch (err) {
     console.error('[saveStepTime]', err);
     res.status(500).json({ message: 'Failed to save step time' });
+  }
+});
+
+// NEW route for summaries
+router.post('/saveStepSummary', async (req, res) => {
+  try {
+    const { userId, stepId, summaryId, text, roadmapId } = req.body;
+
+    if (!userId || !stepId || !summaryId || !text || !roadmapId) {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
+
+    const roadmap = await Roadmap.findOne({ _id: roadmapId, userId });
+    if (!roadmap) return res.status(404).json({ message: 'Roadmap not found or access denied' });
+
+    const step = roadmap.steps.find(s => s.id === stepId);
+    if (!step) return res.status(404).json({ message: 'Step not found' });
+
+    const existingIndex = step.summaries?.findIndex(s => s.id === summaryId) ?? -1;
+
+    if (existingIndex !== -1) {
+      step.summaries[existingIndex].text = text.trim();
+      step.summaries[existingIndex].savedAt = new Date();
+    } else {
+      step.summaries.push({
+        id: summaryId,
+        text: text.trim(),
+        savedAt: new Date()
+      });
+    }
+
+    step.markModified('summaries'); // ← Critical line
+
+    await roadmap.save();
+
+    res.status(200).json({ message: 'Summary saved successfully' });
+  } catch (err) {
+    console.error('[saveStepSummary]', err);
+    res.status(500).json({ message: 'Failed to save summary' });
   }
 });
 

@@ -20,7 +20,8 @@ app.use(express.json());
 // Routes
 app.use('/api/roadmaps', roadmapRoutes);
 
-app.use('/api/saveStepTime', saveStepTimeRouter);
+// app.use('/api/saveStepTime', saveStepTimeRouter);
+app.use('/api', saveStepTimeRouter);
 
 app.get('/', (req, res) => {
   res.send('Learn App Backend Running 🐝');
