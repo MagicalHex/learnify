@@ -3,6 +3,7 @@
 // ------------------------------------------------------------
 import { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
+// USED THIS FOR WAITING 2 SECONDS TO SAVE UPDATES. POSSIBLY USE IT IN THE FUTURE
 import { useDebounce } from '@/utils/debounce';
 
 // Reuse the same types as your Roadmap page (or define here if not shared)
@@ -240,6 +241,7 @@ const canSaveTime = (step: typeof stepData[string] | undefined) => {
 
   return Boolean(hasValidManual || hasValidTimer);
 };
+
 // Save time
 const saveTime = async (stepId: string, source: 'timer' | 'manual') => {
     const step = stepData[stepId];
@@ -296,6 +298,7 @@ const saveTime = async (stepId: string, source: 'timer' | 'manual') => {
   // 4️⃣ Optional debug
   console.log('[saveTime] completed', stepId);
 };
+
 const resetStepTime = (stepId: string) => {
   setStepData(prev => ({
     ...prev,
@@ -370,12 +373,15 @@ const saveSummaryToBackend = async (stepId: string, summaryId: string, currentTe
 };
 
 // Create debounced version (2 second delay)
-const debouncedSaveSummary = useDebounce(
-  (stepId: string, summaryId: string, currentText: string, savedText: string | undefined) =>
-    saveSummaryToBackend(stepId, summaryId, currentText, savedText),
-  2000
-);
+// const debouncedSaveSummary = useDebounce(
+//   (stepId: string, summaryId: string, currentText: string, savedText: string | undefined) =>
+//     saveSummaryToBackend(stepId, summaryId, currentText, savedText),
+//   2000
+// );
 
+// #################
+// SAVE COMPLETION
+// #################
 const saveStepCompletion = async (stepId: string, completed: string | null) => {
   const userId = localStorage.getItem('userId') || 'pseudo-user-123';
   const roadmapId = roadmaps.find(rm => rm.steps.some(s => s.id === stepId))?.id;
@@ -1021,37 +1027,30 @@ onChange={(e) => {
   }));
 
   // Only schedule save if there's potentially something to save
-  if (value.trim().length > 0) {
-    const savedText = stepData[step.id]?.summaries.find(s => s.id === summary.id)?.savedText;
-    debouncedSaveSummary(step.id, summary.id, value, savedText);
-  }
+  // if (value.trim().length > 0) {
+  //   const savedText = stepData[step.id]?.summaries.find(s => s.id === summary.id)?.savedText;
+  //   debouncedSaveSummary(step.id, summary.id, value, savedText);
+  // }
   // If empty, do nothing — don't cancel, just let it not trigger
 }}
-onBlur={(e) => {
-  const value = e.target.value.trim();
+onBlur={async () => {
+      const trimmed = summary.text.trim(); // use current summary.text (updated live)
 
-  // Only attempt save if there's non-empty content
-  if (value.length === 0) return;
+      // 1. Skip if empty
+      if (trimmed.length === 0) return;
 
-  // Get the last saved version for comparison
-  const currentSummary = stepData[step.id]?.summaries.find(s => s.id === summary.id);
-  const savedText = currentSummary?.savedText;
+      // 2. Get the last successfully saved version
+      const savedText = summary.savedText?.trim();
 
-  // If text hasn't changed from what was last saved, no need to save
-  if (value === savedText) return;
+      // 3. Skip if no meaningful change
+      if (trimmed === savedText) return;
 
-  // Trigger the debounced save (it will also re-check inside, but this avoids unnecessary scheduling)
-  debouncedSaveSummary(step.id, summary.id, e.target.value, savedText);
-}}
-    placeholder={
-      stepData[step.id]?.summaryPlaceholder ||
-      "Explain this in your own words…"
-    }
-    className="
-      w-full p-2 rounded-xl border resize-y
-      bg-white/10 border-white/20 transition-all duration-300
-      min-h-[50px] focus:min-h-[400px] focus:border-green-400/50
-    "
+      // 4. Save! (use your backend function directly or debounced)
+      await saveSummaryToBackend(step.id, summary.id, summary.text, summary.savedText);
+    }}
+    placeholder={stepData[step.id]?.summaryPlaceholder || 'Write your summary here...'}
+    className="w-full h-32 px-4 py-3 bg-white/5 border border-white/10 rounded-lg resize-none focus:outline-none focus:border-green-400 transition"
+    rows={5}
   />
 ))}
 </div>
