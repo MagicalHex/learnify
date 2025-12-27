@@ -1022,12 +1022,6 @@ onChange={(e) => {
     }
   }));
 
-  // Only schedule save if there's potentially something to save
-  // if (value.trim().length > 0) {
-  //   const savedText = stepData[step.id]?.summaries.find(s => s.id === summary.id)?.savedText;
-  //   debouncedSaveSummary(step.id, summary.id, value, savedText);
-  // }
-  // If empty, do nothing — don't cancel, just let it not trigger
 }}
 onBlur={async () => {
       const trimmed = summary.text.trim(); // use current summary.text (updated live)
@@ -1044,10 +1038,19 @@ onBlur={async () => {
       // 4. Save! (use your backend function directly or debounced)
       await saveSummaryToBackend(step.id, summary.id, summary.text, summary.savedText);
     }}
-    placeholder={stepData[step.id]?.summaryPlaceholder || 'Write your summary here...'}
-    className="w-full h-32 px-4 py-3 bg-white/5 border border-white/10 rounded-lg resize-none focus:outline-none focus:border-green-400 transition"
-    rows={5}
-  />
+onFocus={(e) => {
+    // Optional: auto-scroll into view nicely when focused
+    e.target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }}
+  placeholder={stepData[step.id]?.summaryPlaceholder || 'Write your summary here...'}
+  className="
+    w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg 
+    resize-none outline-none transition-all duration-300 ease-in-out
+    h-32 focus:h-[70vh]
+    focus:border-green-400
+  "
+  rows={5}
+/>
 ))}
 </div>
 
