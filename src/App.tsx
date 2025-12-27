@@ -12,7 +12,12 @@ const [count, setCount] = useState(0)
 
 return (
 <>
-<NavExplorer />
+<div className="w-full min-h-screen">
+  <div id="root" className="max-w-screen-xl mx-auto"> {/* or keep your existing #root styles */}
+    {/* Your entire app goes here */}
+    <NavExplorer />
+  </div>
+</div>
 </>
 )
 }

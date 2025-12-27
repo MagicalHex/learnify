@@ -627,37 +627,33 @@ const fetchStepSummaries = async (stepId: string): Promise<StepSummary[] | null>
 {/* Full-width Sticky Header */}
 <div className="sticky top-0 z-10 pb-2 mb-4">
   {/* Backdrop */}
-  <div className="absolute left-0 right-0 top-0 h-full bg-black/20 backdrop-blur-sm shadow-md rounded-b-2xl"></div>
+  <div className="absolute inset-x-0 top-0 h-full bg-black/20 backdrop-blur-sm shadow-md rounded-b-2xl"></div>
   
-  {/* Use ul/li properly */}
-  <ul className="relative px-2 pt-4">
-    {/* Row 1: Back button + empty right side */}
-    <li className="flex justify-between items-center">
-      <button
-        className="text-2xl opacity-95 bg-gradient-to-b from-green-900 via-green-600 to-green-900 hover:via-blue-700 rounded-full w-12 h-12 shadow-xl border border-green-700 flex items-center justify-center transition-all hover:scale-105"
-        onClick={() => setSelectedRoadmapId(null)}
-      >
-        ←
-      </button>
-      <h1 className="text-2xl md:text-3xl font-bold absolute left-1/2 -translate-x-1/2 whitespace-nowrap text-shadow-lg">
-        {selectedRoadmap.title}
-      </h1>
-    </li>
+  <div className="relative px-2 pt-4">
+    <div className="flex flex-col gap-3">
+      {/* Header row: back button + title with explicit max width and ellipsis */}
+      <div className="flex items-center gap-4">
+        <button
+          className="text-2xl opacity-95 bg-gradient-to-b from-green-900 via-green-600 to-green-900 hover:via-blue-700 rounded-full w-12 h-12 shadow-xl border border-green-700 flex items-center justify-center transition-all hover:scale-105 flex-shrink-0"
+          onClick={() => setSelectedRoadmapId(null)}
+        >
+          ←
+        </button>
 
-    {/* Row 2: Centered title */}
-    {/* <li className="text-center mb-3">
-      <h1 className="text-3xl md:text-4xl font-bold whitespace-nowrap overflow-hidden text-ellipsis">
-        {selectedRoadmap.title}
-      </h1>
-    </li> */}
+        {/* Title with max width ~200px and forced ellipsis */}
+        <h1 className="text-2xl md:text-3xl font-bold text-shadow-lg max-w-60 truncate">
+          {selectedRoadmap.title}
+        </h1>
+      </div>
 
-    {/* Row 3: Steps - small and subtle */}
-    <li className="text-center">
-      <p className="text-base opacity-80">
-        {selectedRoadmap.steps.length} steps
-      </p>
-    </li>
-  </ul>
+      {/* Steps counter */}
+      <div className="text-center">
+        <p className="text-base opacity-80">
+          {selectedRoadmap.steps.length} steps
+        </p>
+      </div>
+    </div>
+  </div>
 </div>
 
         {/* <h1 className="text-5xl font-bold mb-4">{selectedRoadmap.title}</h1> */}
@@ -1119,7 +1115,7 @@ onBlur={async () => {
               boxShadow: '0 0px 4px rgba(0, 44, 4, 0.6), 0 0 20px rgba(0, 71, 22, 0.3)',
             }}
           >
-            <h2 className="text-3xl font-bold mb-3 whitespace-nowrap">{roadmap.title}</h2>
+            <h2 className="text-3xl font-bold mb-3">{roadmap.title}</h2>
             <p className="text-lg opacity-90">
               {roadmap.steps.length} steps · Last used {roadmap.lastUpdated}
             </p>
