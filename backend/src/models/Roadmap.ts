@@ -10,7 +10,7 @@ const stepSchema = new mongoose.Schema({
   },
   difficulty: { type: Number, min: 1, max: 5, default: 1 },
   estimatedTime: { type: String },
-  completed: { type: Boolean, default: false }, 
+  completed: { type: String, default: null }, // ISO timestamp string or null
   timeLogs: [
     {
       timerEvents: [{ type: { type: String }, at: Number }],

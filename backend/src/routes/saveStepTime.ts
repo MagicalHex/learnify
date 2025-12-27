@@ -127,24 +127,43 @@ router.post('/saveStepCompletion', async (req, res) => {
   try {
     const { userId, stepId, roadmapId, completed } = req.body;
 
-    if (!userId || !stepId || !roadmapId || typeof completed !== 'boolean') {
-      return res.status(400).json({ message: 'Missing or invalid fields' });
+    // Validation: completed can be a valid ISO string or null
+    if (!userId || !stepId || !roadmapId) {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
+
+    if (completed !== null && typeof completed !== 'string') {
+      return res.status(400).json({ message: 'completed must be null or a string (ISO timestamp)' });
+    }
+
+    // Optional: extra validation for ISO format
+    if (completed !== null) {
+      if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(completed)) {
+        return res.status(400).json({ message: 'Invalid timestamp format' });
+      }
     }
 
     const roadmap = await Roadmap.findOne({ _id: roadmapId, userId });
-    if (!roadmap) return res.status(404).json({ message: 'Roadmap not found or access denied' });
+    if (!roadmap) {
+      return res.status(404).json({ message: 'Roadmap not found or access denied' });
+    }
 
     const step = roadmap.steps.find(s => s.id === stepId);
-    if (!step) return res.status(404).json({ message: 'Step not found' });
+    if (!step) {
+      return res.status(404).json({ message: 'Step not found' });
+    }
 
-    step.completed = completed;
-    step.markModified('steps'); // Important for nested arrays
+    step.completed = completed; // now accepts string or null
+    step.markModified('steps'); // critical for nested updates
 
     await roadmap.save();
 
-    res.json({ message: 'Completion status saved', completed });
+    res.json({ 
+      message: 'Completion timestamp saved', 
+      completed 
+    });
   } catch (err) {
-    console.error('[saveStepCompletion]', err);
+    console.error('[saveStepCompletion] error:', err);
     res.status(500).json({ message: 'Failed to save completion' });
   }
 });

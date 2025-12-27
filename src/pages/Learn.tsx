@@ -13,7 +13,7 @@ interface Step {
   difficulty: number;
   estimatedTime?: string;
   link?: string; // optional for now
-  completed: boolean;
+completed: string | null; // null = not completed, string = ISO timestamp when completed
 }
 
 interface Roadmap {
@@ -70,6 +70,18 @@ const Learn = ({ onExit }: { onExit: () => void }) => {
   const [selectedRoadmapId, setSelectedRoadmapId] = useState<string | null>(null);
   const [chosenStepId, setChosenStepId] = useState<string | null>(null);
 
+  // For  prompting user for date when clicking 'complete' step
+  // NEEDS TO SEND THIS DATE ALONG WITH COMPLETION
+const [completionModal, setCompletionModal] = useState<{
+  open: boolean;
+  stepId: string | null;
+  defaultDateTime: string; // ← now includes time
+}>({
+  open: false,
+  stepId: null,
+  defaultDateTime: '',
+});
+
   // ################
   // FOR LOADING AND DISPLAYING STEPS
   // ################
@@ -83,7 +95,7 @@ const [stepData, setStepData] = useState<Record<string, {
   timerEvents?: { type: 'start' | 'pause'; at: number }[];
   summaries: StepSummary[];
   summaryPlaceholder?: string;
-  completed: boolean;
+  completed: string | null;  // ← Fixed!
   // manual inputs
   showManualTime?: boolean;
   manualDate?: string;
@@ -116,7 +128,7 @@ const ensureStepData = (stepId: string, stepTitle?: string) => {
         summaryPlaceholder: stepTitle
           ? getRandomSummaryPlaceholder(stepTitle)
           : undefined,
-        completed: false,
+        completed: null,
       }
     }));
   }
@@ -152,7 +164,7 @@ const handleStepClick = async (stepId: string, stepTitle: string) => {
             showTimer: false,
             summaries: savedSummaries,
             summaryPlaceholder: getRandomSummaryPlaceholder(stepTitle),
-            completed: false, // you can also load this from backend later
+            completed: null,
           }
         }));
       } else {
@@ -173,7 +185,7 @@ const handleStepClick = async (stepId: string, stepTitle: string) => {
               }
             ],
             summaryPlaceholder: getRandomSummaryPlaceholder(stepTitle),
-            completed: false,
+            completed: null,
           }
         }));
       }
@@ -188,6 +200,26 @@ const handleStepClick = async (stepId: string, stepTitle: string) => {
   }
 
   setChosenStepId(nextId);
+};
+
+const handleMarkComplete = (stepId: string, completionTimestamp: string) => {
+  setRoadmaps(prevRoadmaps =>
+    prevRoadmaps.map(rm =>
+      rm.id === selectedRoadmap?.id
+        ? {
+            ...rm,
+            steps: rm.steps.map(s =>
+              s.id === stepId
+                ? { ...s, completed: completionTimestamp }
+                : s
+            )
+          }
+        : rm
+    )
+  );
+
+  updateStepData(stepId, { completed: completionTimestamp });
+  saveStepCompletion(stepId, completionTimestamp); // backend should accept string | null
 };
 
 // ################
@@ -344,7 +376,7 @@ const debouncedSaveSummary = useDebounce(
   2000
 );
 
-const saveStepCompletion = async (stepId: string, completed: boolean) => {
+const saveStepCompletion = async (stepId: string, completed: string | null) => {
   const userId = localStorage.getItem('userId') || 'pseudo-user-123';
   const roadmapId = roadmaps.find(rm => rm.steps.some(s => s.id === stepId))?.id;
 
@@ -680,47 +712,123 @@ const fetchStepSummaries = async (stepId: string): Promise<StepSummary[] | null>
         {/* Expanded content */}
 {isChosen && (
   <div className="mt-6 pt-6 border-t border-white/20 space-y-6">
+            {/* Complete button modal */}
+{completionModal.open && (
+  <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 backdrop-blur-sm">
+    <div className="bg-gray-900 border border-white/20 rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl">
+      <h3 className="text-2xl font-bold mb-6 text-center">When did you complete this?</h3>
+
+      <div className="space-y-6">
+        {/* Native datetime-local picker - best UX on mobile & desktop */}
+        <div>
+          <label className="block text-sm opacity-80 mb-2">Date & Time</label>
+          <input
+            type="datetime-local"
+            defaultValue={completionModal.defaultDateTime || ''}
+            className="w-full px-4 py-3 bg-white/10 border border-white/30 rounded-lg focus:outline-none focus:border-green-400 transition text-white text-lg"
+            id="completion-datetime-input"
+            autoFocus
+          />
+        </div>
+
+        {/* Optional: Show current time as suggestion */}
+        <div className="text-center py-3 bg-white/5 rounded-lg">
+          <p className="text-sm opacity-70">Current time:</p>
+          <p className="text-xl font-mono text-green-400">
+            {new Date().toLocaleString([], {
+              month: 'short',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            })}
+          </p>
+        </div>
+      </div>
+
+      <div className="flex gap-4 mt-8">
+        <button
+          onClick={() => setCompletionModal({ open: false, stepId: null, defaultDateTime: '' })}
+          className="flex-1 py-3 rounded-lg bg-white/10 hover:bg-white/20 transition"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={() => {
+            const input = document.getElementById('completion-datetime-input') as HTMLInputElement;
+            let selectedDateTime = input?.value;
+
+            // If empty, fall back to NOW
+            if (!selectedDateTime) {
+              selectedDateTime = new Date().toISOString().slice(0, 16); // YYYY-MM-DDTHH:mm
+            }
+
+            // Convert to full ISO (with seconds and Z)
+            const finalTimestamp = new Date(selectedDateTime).toISOString();
+
+            if (completionModal.stepId) {
+              handleMarkComplete(completionModal.stepId, finalTimestamp);
+            }
+
+            setCompletionModal({ open: false, stepId: null, defaultDateTime: '' });
+          }}
+          className="flex-1 py-3 rounded-lg bg-green-600 hover:bg-green-500 transition font-semibold"
+        >
+          Confirm Completion
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
     {/* Complete step */}
 <button
   onClick={(e) => {
     e.stopPropagation();
 
-    const newCompleted = !step.completed;
+    if (step.completed) {
+      // Uncomplete → set to null
+      setRoadmaps(prevRoadmaps =>
+        prevRoadmaps.map(rm =>
+          rm.id === selectedRoadmap?.id
+            ? {
+                ...rm,
+                steps: rm.steps.map(s =>
+                  s.id === step.id
+                    ? { ...s, completed: null }
+                    : s
+                )
+              }
+            : rm
+        )
+      );
 
-    // 1. Optimistic update: Update the roadmap in state (this triggers re-render with new value)
-    setRoadmaps(prevRoadmaps =>
-      prevRoadmaps.map(rm =>
-        rm.id === selectedRoadmap?.id
-          ? {
-              ...rm,
-              steps: rm.steps.map(s =>
-                s.id === step.id
-                  ? { ...s, completed: newCompleted }
-                  : s
-              )
-            }
-          : rm
-      )
-    );
+      updateStepData(step.id, { completed: null });
+      saveStepCompletion(step.id, null);
+    } else {
+// When opening modal for incomplete step
+const nowForInput = new Date().toISOString().slice(0, 16); // "2025-12-27T14:30"
 
-    // 2. Optional: Also keep stepData in sync (if you use it elsewhere)
-    updateStepData(step.id, { completed: newCompleted });
-
-    // 3. Save to backend (fire and forget — UI already updated)
-    saveStepCompletion(step.id, newCompleted);
+setCompletionModal({
+  open: true,
+  stepId: step.id,
+  defaultDateTime: nowForInput,
+});
+    }
   }}
   className={`flex flex-col items-center p-3 rounded-xl transition m-auto mb-5
     ${step.completed
-      ? 'bg-emerald-700/40 border-2 border-yellow-400/80 hover:bg-emerald-700/50'
+      ? 'bg-emerald-700/60 border-2 border-yellow-400 hover:bg-emerald-700/70'
       : 'bg-white/10 border border-white/20 hover:bg-white/20'
     }`}
 >
   <span className="text-3xl mb-1">
-    {step.completed ? '💪' : '☐'}
+    {step.completed ? '✅' : '☐'}
   </span>
   <span className="text-xs opacity-80">
-    {step.completed ? 'Completed' : 'Not completed'}
+    {step.completed 
+      ? `Completed ${new Date(step.completed).toLocaleDateString()}`
+      : 'Mark Complete'
+    }
   </span>
 </button>
 
