@@ -325,7 +325,60 @@ const resetStepTime = (stepId: string) => {
   console.log('[resetStepTime] cleared state for', stepId);
 };
 
-// SAVE SUMMARY
+// ############################
+// FOR SAVING SUMMARY ON SCROLL
+// ############################
+
+// For hook attachment to element
+const summaryRefs = useRef<Record<string, HTMLDivElement>>({});
+// Save summary when user scrolls. This is to prevent using 'save button', and prevent multiple savings if user 
+// tabs in/out of the app.
+useEffect(() => {
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) return; // Only care when it leaves view
+
+        const el = entry.target as HTMLElement;
+        const stepId = el.dataset.stepId;
+        const summaryId = el.dataset.summaryId;
+
+        if (!stepId || !summaryId) return;
+
+        const stepSummaryData = stepData[stepId];
+        if (!stepSummaryData) return;
+
+        const summary = stepSummaryData.summaries.find(s => s.id === summaryId);
+        if (!summary) return;
+
+        const trimmed = summary.text.trim();
+        const savedText = summary.savedText?.trim();
+
+        if (trimmed.length === 0) return;
+        if (trimmed === savedText) return;
+
+        saveSummaryToBackend(stepId, summaryId, summary.text, summary.savedText);
+      });
+    },
+    {
+      threshold: 0,
+      rootMargin: '0px 0px -50px 0px', // Trigger slightly before fully out
+    }
+  );
+
+  // Observe all current refs
+  Object.values(summaryRefs.current).forEach((el) => {
+    if (el) observer.observe(el);
+  });
+
+  // Cleanup on unmount or when stepData changes
+  return () => {
+    Object.values(summaryRefs.current).forEach((el) => {
+      if (el) observer.unobserve(el);
+    });
+  };
+}, [stepData]); // Re-observe when stepData updates (new text, etc.)
+
 const saveSummaryToBackend = async (stepId: string, summaryId: string, currentText: string, savedText: string | undefined) => {
   const trimmed = currentText.trim();
 
@@ -1005,52 +1058,47 @@ setCompletionModal({
   <p className="text-lg font-medium">What did you learn?</p>
 
 {(stepData[step.id]?.summaries || []).map((summary) => (
-  <textarea
+  <div
     key={summary.id}
-    value={summary.text}
-    onClick={(e) => e.stopPropagation()}
-onChange={(e) => {
-  const value = e.target.value;
-
-  setStepData(prev => ({
-    ...prev,
-    [step.id]: {
-      ...prev[step.id],
-      summaries: prev[step.id].summaries.map(s =>
-        s.id === summary.id ? { ...s, text: value } : s
-      )
-    }
-  }));
-
-}}
-onBlur={async () => {
-      const trimmed = summary.text.trim(); // use current summary.text (updated live)
-
-      // 1. Skip if empty
-      if (trimmed.length === 0) return;
-
-      // 2. Get the last successfully saved version
-      const savedText = summary.savedText?.trim();
-
-      // 3. Skip if no meaningful change
-      if (trimmed === savedText) return;
-
-      // 4. Save! (use your backend function directly or debounced)
-      await saveSummaryToBackend(step.id, summary.id, summary.text, summary.savedText);
+    ref={(el) => {
+      if (el) {
+        summaryRefs.current[summary.id] = el;
+      } else {
+        delete summaryRefs.current[summary.id];
+      }
     }}
-onFocus={(e) => {
-    // Optional: auto-scroll into view nicely when focused
-    e.target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }}
-  placeholder={stepData[step.id]?.summaryPlaceholder || 'Write your summary here...'}
-  className="
-    w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg 
-    resize-none outline-none transition-all duration-300 ease-in-out
-    h-32 focus:h-[70vh]
-    focus:border-green-400
-  "
-  rows={5}
-/>
+    data-step-id={step.id}
+    data-summary-id={summary.id}
+    className="w-full"
+  >
+    <textarea
+      value={summary.text}
+      onClick={(e) => e.stopPropagation()}
+      onChange={(e) => {
+        const value = e.target.value;
+        setStepData(prev => ({
+          ...prev,
+          [step.id]: {
+            ...prev[step.id],
+            summaries: prev[step.id].summaries.map(s =>
+              s.id === summary.id ? { ...s, text: value } : s
+            )
+          }
+        }));
+      }}
+      onFocus={(e) => {
+        e.target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }}
+      placeholder={stepData[step.id]?.summaryPlaceholder || 'Write your summary here...'}
+      className="
+        w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg 
+        resize-none outline-none transition-all duration-300 ease-in-out
+        h-32 focus:h-[70vh]
+        focus:border-green-400
+      "
+      rows={5}
+    />
+  </div>
 ))}
 </div>
 
