@@ -725,48 +725,52 @@ const fetchStepSummaries = async (stepId: string): Promise<StepSummary[] | null>
   // const isNextStepActive = !step.completed && index === stepsArray.findIndex(s => !s.completed);
 
   return (
-    <li
-      key={step.id}
-      ref={(el) => {
-        stepRefs.current[step.id] = el;
-      }}
-      className={`p-5 rounded-xl transition
-        ${
-          step.completed
-            ? 'border-2 border-yellow-400/40 bg-green-800/40 opacity-60'
-            : isChosen || isActive
-              ? 'bg-green-800/60 border-2 border-green-400'
-              : isNextStepActive
-                ? 'border-2 border-yellow-500 bg-yellow-900/30 shadow-lg shadow-yellow-500/30' // ← Gold highlight
-                : 'bg-white/5 hover:bg-white/10'
-        }
-      `}
-    >
-        {/* Title area clickable (expand/close) */}
-<div
-  onClick={() => handleStepClick(step.id, step.title)}
-  className="cursor-pointer"
+<li
+  key={step.id}
+  ref={(el) => {
+    stepRefs.current[step.id] = el;
+  }}
+  className={`p-5 rounded-xl transition
+    ${
+      step.completed
+        ? 'border-2 border-yellow-400/40 bg-green-800/40'
+        : isChosen || isActive
+          ? 'bg-green-800/60 border-2 border-green-400'
+          : isNextStepActive
+            ? 'border-2 border-yellow-500 bg-yellow-900/30 shadow-lg shadow-yellow-500/30'
+            : 'bg-white/5 hover:bg-white/10'
+    }
+  `}
 >
-  <h3 className="text-xl font-semibold">{step.title}</h3>
-  <p className="text-sm capitalize mt-1 opacity-80">{step.category}</p>
+  {/* Title area clickable (expand/close) */}
+  <div
+    onClick={() => handleStepClick(step.id, step.title)}
+    className={`cursor-pointer transition-opacity ${
+      step.completed ? 'opacity-60' : 'opacity-100'
+    }`}
+  >
+<h3 className="text-xl font-semibold gap-2">
+  {step.title}
+  {step.completed && <span className="text-yellow-400 text-2xl"> ✓</span>}
+</h3>
+    <p className="text-sm capitalize mt-1 opacity-80">{step.category}</p>
 
-  {step.link && (
-    <a
-      href={step.link}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="text-green-300 underline text-sm"
-      onClick={(e) => e.stopPropagation()}
-    >
-      Open link →
-    </a>
-  )}
-</div>
+    {step.link && (
+      <a
+        href={step.link}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-green-300 underline text-sm"
+        onClick={(e) => e.stopPropagation()}
+      >
+        Open link →
+      </a>
+    )}
+  </div>
 
-
-        {/* Expanded content */}
-{isChosen && (
-  <div className="mt-6 pt-6 border-t border-white/20 space-y-6">
+  {/* Expanded content - ALWAYS full opacity, so user can see summaries clearly */}
+  {isChosen && (
+    <div className="mt-6 pt-6 border-t border-white/20 space-y-6">
             {/* Complete button modal */}
 {completionModal.open && (
   <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 backdrop-blur-sm">
