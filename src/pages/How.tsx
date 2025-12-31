@@ -27,7 +27,7 @@ const How = ({ onExit }: { onExit: () => void }) => {
           ←
         </button>
         
-    <h1 className="text-2xl font-bold absolute left-1/2 transform -translate-x-1/2">Roadmaps</h1>
+    <h1 className="text-2xl font-bold absolute left-1/2 transform -translate-x-1/2">How?</h1>
       </div>
   </div>
   {/* CONTENT */}

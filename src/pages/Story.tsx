@@ -3,14 +3,36 @@
 const Story = ({ onExit }: { onExit: () => void }) => {
   return (
     <div className="fixed inset-0 bg-gradient-to-b from-purple-900 to-pink-900 text-white overflow-y-auto">
-      
-      
-      <button
-        onClick={onExit}
-        className="absolute top-4 right-6 text-white/80 hover:text-white text-3xl z-10"
-      >
-        ×
-      </button>
+              {/* Sticky Header */}
+<div className="sticky top-0 z-11 pb-2">
+  <div className="absolute inset-x-0 top-0 h-full bg-black/20 backdrop-blur-sm shadow-md rounded-b-2xl"></div>
+  
+  <div className="relative flex items-center justify-between px-1 py-4">
+        <button
+          className="
+            text-2xl
+            opacity-95
+            bg-gradient-to-b
+            from-green-900
+            via-green-600
+            to-green-900
+            hover:via-blue-700
+            rounded-full
+            w-10 h-10
+            shadow-xl
+            border border-green-700
+            flex items-center justify-center
+            transition-all hover:scale-105"
+          onClick={onExit}
+        >
+          ←
+        </button>
+        
+    <h1 className="text-2xl font-bold absolute left-1/2 transform -translate-x-1/2">🐝</h1>
+      </div>
+  </div>
+
+{/* CONTENT */}
 
       <div className="max-w-5xl mx-auto space-y-16">
         <h1 className="text-6xl md:text-7xl font-bold text-center pt-10">The Bee Curious Story 🐝</h1>

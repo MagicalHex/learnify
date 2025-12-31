@@ -26,13 +26,13 @@ const LandingPage = ({ onExit }: { onExit: () => void }) => {
           ←
         </button>
         
-    <h1 className="text-2xl font-bold absolute left-1/2 transform -translate-x-1/2">Bee Curious</h1>
+    <h1 className="text-2xl font-bold absolute left-1/2 transform -translate-x-1/2">What?</h1>
       </div>
   </div>
 
 {/* CONTENT */}
 
-      <div className="max-w-5xl mx-auto p-8 pt-20 pb-16 space-y-16">
+      <div className="max-w-5xl mx-auto p-8 pt-10 pb-16 space-y-16">
         {/* Hero */}
         <div className="text-center space-y-8">
           <h1 className="text-6xl md:text-7xl font-bold">
