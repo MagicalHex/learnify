@@ -3,12 +3,13 @@
 // ------------------------------------------------------------
 import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
-import Register from './pages/Register';
 import Learn from './pages/Learn';
 import Roadmap from './pages/Roadmap';
 import News from './pages/News';
 import Story from './pages/Story'; // Comic series inspired story, parody of reviews, 
 import How from './pages/How'; // How to learn, serious tips
+import AuthModal from './pages/AuthModal'; // Combined Register and Login
+import Insights from './pages/Insights'; // See how you're doing based on your stats
 import { useState, useRef, useEffect } from 'react';
 
 const SpaceBackground = () => {
@@ -143,12 +144,13 @@ const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const components: Record<string, React.FC<{ onExit: () => void }>> = {
     Landing: LandingPage,
     Login,
-    Register,
     Story,
     News,
     How,
     Learn,
-    Roadmap
+    AuthModal,
+    Roadmap,
+    Insights
   };
 
   const handleClick = (page: string) => {
@@ -244,7 +246,7 @@ const [currentUserId, setCurrentUserId] = useState<string | null>(null);
           </button>
           <div />
 <button
-  onClick={() => handleClick('Login')}
+  onClick={() => handleClick('AuthModal')}
   className="
     opacity-95
     bg-gradient-to-b from-gray-950 via-indigo-800 to-gray-950
@@ -254,9 +256,12 @@ const [currentUserId, setCurrentUserId] = useState<string | null>(null);
     shadow-2xl border border-indigo-950
     animate-float
   "
->
+  style={{
+    boxShadow:
+      '0 10px 4px rgba(0, 0, 0, 0.6), 0 0 4px rgba(43, 0, 135, 0.3)',
+  }}> 
 
-            <span className="font-bold text-white text-sm drop-shadow-md">Login</span>
+            <span className="font-bold text-white text-xl drop-shadow-md drop-shadow-blue-950">🔑</span>
           </button>
           <div />
 
@@ -283,7 +288,7 @@ const [currentUserId, setCurrentUserId] = useState<string | null>(null);
           <div /> {/* Center empty */}
           <div />
 <button
-  onClick={() => handleClick('Register')}
+  onClick={() => handleClick('Nothing')}
   className="
     opacity-95
     bg-gradient-to-b from-gray-950 via-cyan-800 to-gray-950
@@ -298,7 +303,7 @@ const [currentUserId, setCurrentUserId] = useState<string | null>(null);
       '0 10px 4px rgba(0, 0, 0, 0.6), 0 0 4px rgba(43, 0, 135, 0.3)',
   }}> 
 
-            <span className="font-bold text-white text-sm drop-shadow-md">Register</span>
+            <span className="font-bold text-white text-sm drop-shadow-md"></span>
           </button>
 
           {/* Row 4 */}
