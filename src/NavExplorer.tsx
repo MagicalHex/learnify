@@ -7,7 +7,8 @@ import Register from './pages/Register';
 import Learn from './pages/Learn';
 import Roadmap from './pages/Roadmap';
 import News from './pages/News';
-import Story from './pages/Story';
+import Story from './pages/Story'; // Comic series inspired story, parody of reviews, 
+import How from './pages/How'; // How to learn, serious tips
 import { useState, useRef, useEffect } from 'react';
 
 const SpaceBackground = () => {
@@ -145,6 +146,7 @@ const [currentUserId, setCurrentUserId] = useState<string | null>(null);
     Register,
     Story,
     News,
+    How,
     Learn,
     Roadmap
   };
@@ -214,7 +216,7 @@ const [currentUserId, setCurrentUserId] = useState<string | null>(null);
     boxShadow:
       '0 10px 4px rgba(0, 0, 0, 0.6), 0 0 4px rgba(43, 0, 135, 0.3)',
   }}> 
-  <span className="font-bold text-white text-sm drop-shadow-md">Home</span>
+  <span className="font-bold text-white text-sm drop-shadow-md">What?</span>
 </button>
 
           <div />
@@ -223,7 +225,7 @@ const [currentUserId, setCurrentUserId] = useState<string | null>(null);
           {/* Row 2 */}
           <div />
 <button
-  onClick={() => handleClick('Nothing')}
+  onClick={() => handleClick('How')}
   className="
     opacity-95
     bg-gradient-to-b from-gray-950 via-purple-800 to-gray-950
@@ -238,7 +240,7 @@ const [currentUserId, setCurrentUserId] = useState<string | null>(null);
       '0 10px 4px rgba(0, 0, 0, 0.6), 0 0 4px rgba(43, 0, 135, 0.3)',
   }}> 
 
-            <span className="font-bold text-white text-sm drop-shadow-md"></span>
+            <span className="font-bold text-white text-sm drop-shadow-md">How?</span>
           </button>
           <div />
 <button
@@ -275,7 +277,7 @@ const [currentUserId, setCurrentUserId] = useState<string | null>(null);
       '0 10px 4px rgba(0, 0, 0, 0.6), 0 0 4px rgba(21, 0, 66, 0.3)',
   }}> 
 
-            <span className="font-bold text-white text-2xl drop-shadow-md">🐝</span>
+            <span className="font-bold text-white text-2xl drop-shadow-sm drop-shadow-green-500">🐝</span>
           </button>
           <div />
           <div /> {/* Center empty */}

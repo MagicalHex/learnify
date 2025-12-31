@@ -133,11 +133,11 @@ const Story = ({ onExit }: { onExit: () => void }) => {
     />
 
     {/* Button that overlaps the bottom of the image */}
-<div className="absolute inset-x-0 bottom-0 flex justify-center pointer-events-none p-4">
+<div className="absolute inset-x-0 bottom-0 pointer-events-none p-4">
   <button
     onClick={onExit}
     className="pointer-events-auto
-               px-12 py-7 
+               p-4
                text-2xl md:text-3xl lg:text-4xl 
                font-bold text-white 
                rounded-3xl
@@ -148,7 +148,7 @@ const Story = ({ onExit }: { onExit: () => void }) => {
                
                /* Floating effect + enhanced drop shadow */
                shadow-2xl hover:shadow-3xl
-               -translate-y-10           /* lifts it up from the bottom */
+               -translate-y-1           /* lifts it up from the bottom */
                hover:-translate-y-12     /* extra lift on hover */
 
               /* Floating animation */
