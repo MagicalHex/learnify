@@ -47,3 +47,15 @@ width: 100%;
   from { opacity: 0; }
   to { opacity: 1; }
 }
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-20px);
+  }
+}
+
+.animate-float {
+  animation: float 12s ease-in-out infinite;
+}

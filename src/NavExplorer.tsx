@@ -7,6 +7,7 @@ import Register from './pages/Register';
 import Learn from './pages/Learn';
 import Roadmap from './pages/Roadmap';
 import News from './pages/News';
+import Story from './pages/Story';
 import { useState, useRef, useEffect } from 'react';
 
 const SpaceBackground = () => {
@@ -142,6 +143,7 @@ const [currentUserId, setCurrentUserId] = useState<string | null>(null);
     Landing: LandingPage,
     Login,
     Register,
+    Story,
     News,
     Learn,
     Roadmap
@@ -273,13 +275,13 @@ const [currentUserId, setCurrentUserId] = useState<string | null>(null);
       '0 10px 4px rgba(0, 0, 0, 0.6), 0 0 4px rgba(21, 0, 66, 0.3)',
   }}> 
 
-            <span className="font-bold text-white text-sm drop-shadow-md">Story</span>
+            <span className="font-bold text-white text-2xl drop-shadow-md">🐝</span>
           </button>
           <div />
           <div /> {/* Center empty */}
           <div />
 <button
-  onClick={() => handleClick('Chat')}
+  onClick={() => handleClick('Register')}
   className="
     opacity-95
     bg-gradient-to-b from-gray-950 via-cyan-800 to-gray-950

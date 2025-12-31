@@ -4,6 +4,7 @@ import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import roadmapRoutes from './routes/roadmapRoutes';
 import saveStepTimeRouter from './routes/saveStepTime';
+import authRouter from './routes/auth';
 
 dotenv.config();
 
@@ -29,6 +30,9 @@ app.use('/api', saveStepTimeRouter); // this now handles:
 // POST  /api/saveStepSummary
 // POST  /api/saveStepTime
 // GET   /api/getStepSummaries
+
+// Login Register
+app.use('/api', authRouter);
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGODB_URI!)
