@@ -6,7 +6,7 @@ const router = express.Router();
 // POST TIME
 router.post('/saveStepTime', async (req, res) => {
   try {
-    const { userId, stepId, roadmapId, timerEvents, manualFrom, manualTo, manualBreakFrom, manualBreakTo, pausedTime } = req.body;
+    const { userId, stepId, roadmapId, timerEvents, manualFrom, manualTo, manualBreakFrom, manualBreakTo, pausedTime, mood } = req.body;
 
     if (!userId || !stepId || !roadmapId) {
       return res.status(400).json({ message: 'Missing required fields' });
@@ -32,6 +32,7 @@ if (!step) return res.status(404).json({ message: 'Step not found' });
   manualBreakFrom,
   manualBreakTo,
   pausedTime,
+  mood,
   savedAt: new Date()
 });
 

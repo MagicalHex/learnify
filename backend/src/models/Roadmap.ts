@@ -23,7 +23,8 @@ const stepSchema = new mongoose.Schema({
       mood: {
         type: String,
         enum: ['🐢', '😕', '🙂', '🚀', '😴'],
-        required: true
+        required: false,
+        default: '🙂'
       }
     }
   ],
