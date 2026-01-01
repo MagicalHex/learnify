@@ -115,8 +115,8 @@ const Insights = ({ onExit }: { onExit: () => void }) => {
   </div>
 
 {/* CONTENT */}
-      <div className="max-w-6xl mx-auto">
-        <h1 className="text-5xl md:text-6xl font-bold text-center mb-12 mt-4">
+      <div className="max-w-6xl mx-auto p-4">
+        <h1 className="text-3xl md:text-6xl font-bold text-center mb-12 mt-4">
           Your Learning Insights 🐝📊
         </h1>
 

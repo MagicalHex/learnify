@@ -19,10 +19,15 @@ const stepSchema = new mongoose.Schema({
       manualBreakFrom: String,
       manualBreakTo: String,
       pausedTime: Number,
-      savedAt: Date
+      savedAt: { type: Date, default: Date.now },
+      mood: {
+        type: String,
+        enum: ['🐢', '😕', '🙂', '🚀', '😴'],
+        required: true
+      }
     }
   ],
-  summaries: [  // ← ADD THIS
+  summaries: [
     {
       id: { type: String, required: true },  // your frontend summary.id
       text: { type: String, required: true },

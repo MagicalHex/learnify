@@ -70,6 +70,11 @@ const Learn = ({ onExit }: { onExit: () => void }) => {
   const [loading, setLoading] = useState(true);
   const [selectedRoadmapId, setSelectedRoadmapId] = useState<string | null>(null);
   const [chosenStepId, setChosenStepId] = useState<string | null>(null);
+  // Track selected mood
+  const [selectedMood, setSelectedMood] = useState<string | null>(null);
+  // Show warning if mood is selected but not time
+const [modalMode, setModalMode] = useState<'noTime' | 'confirmDefault' | null>(null);
+const [pendingMood, setPendingMood] = useState<string | null>(null);
 
   // For  prompting user for date when clicking 'complete' step
   // NEEDS TO SEND THIS DATE ALONG WITH COMPLETION
@@ -105,6 +110,8 @@ const [stepData, setStepData] = useState<Record<string, {
   manualBreakFrom?: string; // ← added
   manualBreakTo?: string;   // ← added
   manualTime?: string;
+  // Just check so user really enters correct manual time
+  manualTimeNotModified?: boolean;
 }>>({});
 
 
@@ -130,6 +137,7 @@ const ensureStepData = (stepId: string, stepTitle?: string) => {
           ? getRandomSummaryPlaceholder(stepTitle)
           : undefined,
         completed: null,
+        manualTimeNotModified: false,
       }
     }));
   }
@@ -166,6 +174,7 @@ const handleStepClick = async (stepId: string, stepTitle: string) => {
             summaries: savedSummaries,
             summaryPlaceholder: getRandomSummaryPlaceholder(stepTitle),
             completed: null,
+            manualTimeNotModified: false,
           }
         }));
       } else {
@@ -187,6 +196,7 @@ const handleStepClick = async (stepId: string, stepTitle: string) => {
             ],
             summaryPlaceholder: getRandomSummaryPlaceholder(stepTitle),
             completed: null,
+            manualTimeNotModified: false,
           }
         }));
       }
@@ -243,20 +253,34 @@ const canSaveTime = (step: typeof stepData[string] | undefined) => {
 };
 
 // Save time
-const saveTime = async (stepId: string, source: 'timer' | 'manual') => {
-    const step = stepData[stepId];
+const saveTime = async (
+  stepId: string,
+  source: 'timer' | 'manual',
+  mood: string
+) => {
+  const step = stepData[stepId];
 
+// Case 1: No valid time data at all
   if (!canSaveTime(step)) {
     console.warn('[saveTime] blocked – no valid time data');
+    setModalMode('noTime');
     return;
   }
 
-  // 1️⃣ Run the appropriate save method
+  // Case 2: Valid time exists, but it's the unmodified default (only for manual)
+  if (source === 'manual' && step?.manualTimeNotModified) {
+    setPendingMood(mood);
+    setModalMode('confirmDefault');
+    return;
+  }
+
+  // Case 3: All good → proceed with actual save
   if (source === 'timer') {
     saveTimerTime(stepId);
   } else {
     saveManualTime(stepId);
   }
+
   const userId = localStorage.getItem('userId') || 'pseudo-user-123';
 
   if (!step) {
@@ -276,6 +300,7 @@ const saveTime = async (stepId: string, source: 'timer' | 'manual') => {
       manualBreakFrom: step.manualBreakFrom,
       manualBreakTo: step.manualBreakTo,
       pausedTime: step.pausedTime ?? 0,
+      mood,
       timestamp: Date.now(), // optional: record when saved
     };
 
@@ -287,6 +312,7 @@ const saveTime = async (stepId: string, source: 'timer' | 'manual') => {
 
   // 3️⃣ Reset the timer for next run
   resetStepTime(stepId);
+  setSelectedMood(null);
   // updateStepData(stepId, {
   //   isRunning: false,
   //   startTime: undefined,
@@ -598,6 +624,7 @@ useEffect(() => {
     manualDate: now.toISOString().slice(0, 10),
     manualFrom: from,
     manualTo: to,
+    manualTimeNotModified: true,
   });
 }, [chosenStepId, stepData]);
 
@@ -838,6 +865,83 @@ const fetchStepSummaries = async (stepId: string): Promise<StepSummary[] | null>
     </div>
   </div>
 )}
+            {/* SHOW TIME WARNING MODAL */}
+{modalMode && (
+  <div 
+    className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+    onClick={() => {
+      setModalMode(null);
+      setPendingMood(null);
+    }}
+  >
+    <div 
+      className="bg-gradient-to-br from-purple-800 to-pink-800 rounded-3xl p-8 max-w-md mx-4 shadow-2xl border border-purple-500/50"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="text-center">
+        <p className="text-6xl mb-4">🐝</p>
+
+        {modalMode === 'noTime' ? (
+          <>
+            <h3 className="text-2xl font-bold mb-4">Hey there, busy bee!</h3>
+            <p className="text-lg opacity-90 leading-relaxed">
+              We know clicking mood buttons is super fun...<br />
+              but you'll need to track some time first to save your progress! Clock
+            </p>
+            <button
+              onClick={() => setModalMode(null)}
+              className="mt-8 px-8 py-3 bg-white/20 hover:bg-white/30 rounded-2xl font-semibold transition"
+            >
+              Got it!
+            </button>
+          </>
+        ) : (
+          <>
+            <h3 className="text-2xl font-bold mb-4">Quick check, busy bee!</h3>
+<p className="text-lg opacity-90 leading-relaxed mb-8">
+  You haven't changed the suggested time yet:<br /><br />
+<span className="font-bold text-xl text-yellow-300">
+    {stepData[step.id]?.manualFrom || '??:??'} → {stepData[step.id]?.manualTo || '??:??'} 
+</span><br />
+<span className="text-md opacity-80">
+  on {stepData[step.id]?.manualDate || 'today'}
+</span><br /><br />
+  Is this correct?
+</p>
+            <div className="flex gap-4 justify-center">
+              <button
+                onClick={() => {
+                  setModalMode(null);
+                  setPendingMood(null);
+                }}
+                className="px-6 py-3 bg-white/20 hover:bg-white/30 rounded-2xl font-semibold transition"
+              >
+                No, glad you pointed it out!
+              </button>
+<button
+  onClick={() => {
+    if (pendingMood) {
+      // First: mark as modified so saveTime proceeds fully
+      updateStepData(step.id, { manualTimeNotModified: false });
+
+      // Then: save
+      setSelectedMood(pendingMood);
+      saveTime(step.id, 'manual', pendingMood);
+    }
+    setModalMode(null);
+    setPendingMood(null);
+  }}
+  className="px-8 py-3 bg-yellow-500/80 hover:bg-yellow-400 text-black font-bold rounded-2xl transition shadow-lg"
+>
+  Yes, 100% correct!
+</button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  </div>
+)}
 
     {/* Complete step */}
 <button
@@ -930,10 +1034,12 @@ setCompletionModal({
 
 {/* Timer */}
 {stepData[step.id]?.showTimer && (
-  <div className="py-4 bg-black/20 rounded-xl space-y-4">
+  <div className="p-4 bg-black/20 rounded-xl space-y-4">
 
     {/* Time row */}
     <div className="flex items-center justify-center gap-4">
+
+      {/* START TIMER */}
       <button
         onClick={(e) => {
           e.stopPropagation();
@@ -960,17 +1066,40 @@ setCompletionModal({
     </p>
 
     {/* Save time */}
-    <div className="flex justify-center">
+<div className="mt-6">
+  <p className="text-center text-sm text-gray-300 mb-4">
+    First track your time, then tap how you felt to save
+  </p>
+
+  <div className="grid grid-cols-5 gap-1 max-w-md mx-auto">
+    {[
+      { emoji: '🐢', label: 'Stuck' },
+      { emoji: '😕', label: 'Confused' },
+      { emoji: '🙂', label: 'Steady' },
+      { emoji: '🚀', label: 'Flow' },
+      { emoji: '😴', label: 'Tired' },
+    ].map(({ emoji, label }) => (
       <button
+        key={emoji}
         onClick={(e) => {
           e.stopPropagation();
-          saveTime(step.id, 'timer');
+          setSelectedMood(emoji);
+          saveTime(step.id, 'timer', emoji); // ← Just call it!
         }}
-        className="px-4 py-2 bg-green-600 rounded-xl hover:bg-green-500 text-sm"
+        className={`
+          flex flex-col items-center justify-center p-4 rounded-2xl transition-all
+          ${selectedMood === emoji
+            ? 'bg-white/20 scale-110 shadow-lg ring-4 ring-white/50'
+            : 'bg-white/10 hover:bg-white/20'
+          }
+        `}
       >
-        Save time
+        <span className="text-4xl mb-1">{emoji}</span>
+        <span className="text-xs text-gray-200">{label}</span>
       </button>
-    </div>
+    ))}
+  </div>
+</div>
   </div>
 )}
 
@@ -981,39 +1110,46 @@ setCompletionModal({
     onClick={(e) => e.stopPropagation()}
   >
     {/* Date */}
-    <input
-      type="date"
-      className="p-2 rounded-xl bg-white/10 border border-white/20 text-sm"
-      value={
-        stepData[step.id]?.manualDate ||
-        new Date().toISOString().slice(0, 10)
-      }
-      onChange={(e) =>
-        updateStepData(step.id, { manualDate: e.target.value })
-      }
-    />
+{/* Date input (optional — also counts as modification) */}
+<input
+  type="date"
+  className="p-2 rounded-xl bg-white/10 border border-white/20 text-sm"
+  value={stepData[step.id]?.manualDate || new Date().toISOString().slice(0, 10)}
+  onChange={(e) => {
+    updateStepData(step.id, {
+      manualDate: e.target.value,
+      manualTimeNotModified: false,
+    });
+  }}
+/>
 
     {/* Time range */}
     <div className="flex items-center gap-3">
-      <input
-        type="time"
-        className="p-2 rounded-xl bg-white/10 border border-white/20 text-sm"
-        value={stepData[step.id]?.manualFrom || ''}
-        onChange={(e) =>
-          updateStepData(step.id, { manualFrom: e.target.value })
-        }
-      />
+{/* From input */}
+<input
+  type="time"
+  value={stepData[step.id]?.manualFrom || ''}
+  onChange={(e) => {
+    updateStepData(step.id, {
+      manualFrom: e.target.value,
+      manualTimeNotModified: false, // ← User touched it!
+    });
+  }}
+/>
 
       <span className="opacity-60 text-sm">→</span>
 
-      <input
-        type="time"
-        className="p-2 rounded-xl bg-white/10 border border-white/20 text-sm"
-        value={stepData[step.id]?.manualTo || ''}
-        onChange={(e) =>
-          updateStepData(step.id, { manualTo: e.target.value })
-        }
-      />
+{/* To input */}
+<input
+  type="time"
+  value={stepData[step.id]?.manualTo || ''}
+  onChange={(e) => {
+    updateStepData(step.id, {
+      manualTo: e.target.value,
+      manualTimeNotModified: false,
+    });
+  }}
+/>
     </div>
 
     {/* Break */}
@@ -1045,15 +1181,41 @@ setCompletionModal({
 
 
     {/* Save */}
-    <button
-      onClick={(e) => {
-        e.stopPropagation();
-        saveTime(step.id, 'manual');
-      }}
-      className="mt-2 px-5 py-2 bg-green-600/80 rounded-xl hover:bg-green-500 transition text-sm"
-    >
-      Save time
-    </button>
+<div className="mt-4">
+  <p className="text-center text-sm text-gray-300 mb-4">
+    Select mood after setting time to keep track
+  </p>
+
+  <div className="grid grid-cols-5 gap-1 max-w-md mx-auto">
+    {[
+      { emoji: '🐢', label: 'Stuck' },
+      { emoji: '😕', label: 'Confused' },
+      { emoji: '🙂', label: 'Steady' },
+      { emoji: '🚀', label: 'Flow' },
+      { emoji: '😴', label: 'Tired' },
+    ].map(({ emoji, label }) => (
+      <button
+        key={emoji}
+        onClick={(e) => {
+          e.stopPropagation();
+          setSelectedMood(emoji);
+          saveTime(step.id, 'manual', emoji);
+        }}
+        className={`
+          flex flex-col items-center justify-center
+          py-3 px-2 rounded-2xl transition-all
+          ${selectedMood === emoji
+            ? 'bg-white/30 scale-110 shadow-xl ring-4 ring-yellow-400/50'
+            : 'bg-green-600/60 hover:bg-green-500 hover:scale-105'
+          }
+        `}
+      >
+        <span className="text-3xl mb-1">{emoji}</span>
+        <span className="text-xs font-medium text-gray-100">{label}</span>
+      </button>
+    ))}
+  </div>
+</div>
   </div>
 )}
 
