@@ -415,7 +415,7 @@ useEffect(() => {
                   {insights && (
   <>
     {/* NEW: Suggestion Banner at the top */}
-    <div className="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-3xl p-8 shadow-2xl text-center mb-12 text-white">
+<div className="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-3xl p-8 shadow-2xl text-center mb-12 text-white border-2 border-white/30">
       <h2 className="text-3xl md:text-5xl font-bold mb-4">
         Today's Recommendation
       </h2>
@@ -456,28 +456,28 @@ useEffect(() => {
   </>
 )}
 
-        <div className={`bg-gradient-to-br ${color} rounded-3xl p-10 shadow-2xl text-center mb-12`}>
+        <div className={`bg-gradient-to-br ${color} rounded-3xl p-10 shadow-2xl text-center mb-12 border-2 border-gray-400`}>
           <h2 className="text-4xl font-bold mb-4">{intensityLevel}</h2>
           <p className="text-2xl mb-2">Average: {avgDailyHours.toFixed(1)} hours/day (last 7 days)</p>
           <p className="text-xl opacity-90">{message}</p>
         </div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
-          <div className="bg-gradient-to-br from-orange-500 to-yellow-500 rounded-3xl p-8 shadow-xl text-center">
+          <div className="bg-gradient-to-br from-orange-500 to-yellow-500 rounded-3xl p-8 shadow-xl text-center border-2 border-gray-400">
             <p className="text-5xl mb-4">🔥</p>
             <h3 className="text-3xl font-bold mb-2">Current Streak</h3>
             <p className="text-4xl font-bold">{currentStreak} days</p>
             <p className="text-lg opacity-80 mt-2">Longest: {longestStreak} days</p>
           </div>
 
-          <div className="bg-gradient-to-br from-teal-500 to-cyan-600 rounded-3xl p-8 shadow-xl text-center">
+          <div className="bg-gradient-to-br from-teal-500 to-cyan-600 rounded-3xl p-8 shadow-xl text-center border-2 border-gray-400">
             <p className="text-5xl mb-4">🎯</p>
             <h3 className="text-3xl font-bold mb-2">Steps Completed</h3>
             <p className="text-4xl font-bold">{totalStepsCompleted}</p>
             <p className="text-lg opacity-80">You're making real progress!</p>
           </div>
 
-          <div className="bg-gradient-to-br from-pink-500 to-purple-600 rounded-3xl p-8 shadow-xl text-center">
+          <div className="bg-gradient-to-br from-pink-500 to-purple-600 rounded-3xl p-8 shadow-xl text-center border-2 border-gray-400">
             <p className="text-6xl mb-4">{moodEmoji}</p>
             <h3 className="text-3xl font-bold mb-2">Recent Mood</h3>
             <p className="text-xl opacity-90">{moodMessage}</p>
