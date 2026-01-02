@@ -1,17 +1,252 @@
-// src/pages/Insights.tsx or components/Insights.tsx
+// src/pages/Insights.tsx
 import { useEffect, useState } from 'react';
-// Assume you have some mock data or fetch from your backend/localStorage
-// For demo: mock data
-const mockData = {
-  totalStepsCompleted: 42,
-  currentStreak: 5,
-  longestStreak: 12,
-  last7DaysHours: [1.5, 0, 2.5, 3, 1, 4.5, 6], // example hours per day
-  last7DaysMoods: ['🚀', '🙂', '😕', '🚀', '🙂', '😴', '🚀'], // mood emojis
-  accountAgeDays: 10, // days since first activity
-};
+import axios from 'axios';
+
+interface TimeLog {
+  timerEvents?: { type: string; at: number }[];
+  manualFrom?: string;
+  manualTo?: string;
+  manualBreakFrom?: string;
+  manualBreakTo?: string;
+  pausedTime?: number;
+  savedAt?: string;
+  mood?: '🐢' | '😕' | '🙂' | '🚀' | '😴';
+}
+
+interface Step {
+  id: string;
+  title: string;
+  category: 'reading' | 'watching' | 'coding' | 'thinking';
+  difficulty: number;
+  completed: string | null;
+  timeLogs: TimeLog[];
+  // summaries and other fields omitted for insights
+}
+
+interface Roadmap {
+  id: string;
+  title: string;
+  steps: Step[];
+}
+
+interface InsightsData {
+  totalStepsCompleted: number;
+  currentStreak: number;
+  longestStreak: number;
+  last7DaysHours: number[];
+  last7DaysMoods: string[];
+  accountAgeDays: number;
+}
 
 const Insights = ({ onExit }: { onExit: () => void }) => {
+  const [insights, setInsights] = useState<InsightsData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Helper: calculate active hours from one time log
+  const calculateHoursFromLog = (log: TimeLog): number => {
+    let seconds = 0;
+
+    if (log.manualFrom && log.manualTo) {
+      const start = new Date(log.manualFrom);
+      const end = new Date(log.manualTo);
+      if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+        seconds = (end.getTime() - start.getTime()) / 1000;
+
+        if (log.manualBreakFrom && log.manualBreakTo) {
+          const bStart = new Date(log.manualBreakFrom);
+          const bEnd = new Date(log.manualBreakTo);
+          if (!isNaN(bStart.getTime()) && !isNaN(bEnd.getTime())) {
+            seconds -= (bEnd.getTime() - bStart.getTime()) / 1000;
+          }
+        }
+      }
+    }
+
+    if (log.pausedTime) seconds -= log.pausedTime;
+
+    return Math.max(0, seconds / 3600);
+  };
+
+  // Core computation function — pure, testable, clean
+  const computeInsightsFromSteps = (allSteps: Step[]): InsightsData => {
+    console.log('Computing insights from', allSteps.length, 'steps');
+
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    let totalCompleted = 0;
+    const dailyHours: Record<string, number> = {};
+    const dailyMood: Record<string, { mood: string; savedAt: string }> = {};
+    const activeDates = new Set<string>();
+    let firstActivityDate: Date | null = null;
+
+    allSteps.forEach(step => {
+      if (step.completed) totalCompleted++;
+
+      step.timeLogs.forEach(log => {
+        const logDateStr = log.savedAt || log.manualFrom;
+        if (!logDateStr) return;
+
+        const logDate = new Date(logDateStr);
+        if (isNaN(logDate.getTime())) return;
+
+        const dateKey = logDate.toISOString().split('T')[0];
+
+        const hours = calculateHoursFromLog(log);
+        if (hours > 0.01) {
+          dailyHours[dateKey] = (dailyHours[dateKey] || 0) + hours;
+          activeDates.add(dateKey);
+        }
+
+        const mood = log.mood || '🙂';
+        const savedAt = log.savedAt || log.manualFrom || '';
+        const existing = dailyMood[dateKey];
+        if (!existing || savedAt > existing.savedAt) {
+          dailyMood[dateKey] = { mood, savedAt };
+        }
+
+        if (!firstActivityDate || logDate < firstActivityDate) {
+          firstActivityDate = logDate;
+        }
+      });
+    });
+
+    // Last 7 days arrays
+    const last7DaysHours: number[] = [];
+    const last7DaysMoods: string[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const day = new Date(today);
+      day.setDate(today.getDate() - i);
+      const key = day.toISOString().split('T')[0];
+      last7DaysHours.push(parseFloat((dailyHours[key] || 0).toFixed(2)));
+      last7DaysMoods.push(dailyMood[key]?.mood || '🙂');
+    }
+
+    // Streaks
+    const sortedActiveDates = Array.from(activeDates)
+      .map(d => new Date(d))
+      .sort((a, b) => a.getTime() - b.getTime());
+
+    let longestStreak = 0;
+    let currentStreak = 0;
+    let tempStreak = 1;
+
+    for (let i = 1; i < sortedActiveDates.length; i++) {
+      const diffDays = (sortedActiveDates[i].getTime() - sortedActiveDates[i - 1].getTime()) / (1000 * 60 * 60 * 24);
+      if (Math.abs(diffDays - 1) < 0.1) {
+        tempStreak++;
+      } else {
+        longestStreak = Math.max(longestStreak, tempStreak);
+        tempStreak = 1;
+      }
+    }
+    longestStreak = Math.max(longestStreak, tempStreak);
+
+    // Current streak
+    if (sortedActiveDates.length > 0) {
+      const lastActive = sortedActiveDates[sortedActiveDates.length - 1];
+      const lastKey = lastActive.toISOString().split('T')[0];
+      const todayKey = today.toISOString().split('T')[0];
+      const yesterdayKey = new Date(today.getTime() - 86400000).toISOString().split('T')[0];
+
+      if (lastKey === todayKey) {
+        currentStreak = tempStreak;
+      } else if (lastKey === yesterdayKey) {
+        currentStreak = 1;
+      }
+    }
+
+    const accountAgeDays = firstActivityDate
+      ? Math.floor((now.getTime() - new Date(firstActivityDate).setHours(0, 0, 0, 0)) / (1000 * 60 * 60 * 24)) + 1
+      : 1;
+
+    const result: InsightsData = {
+      totalStepsCompleted: totalCompleted,
+      currentStreak,
+      longestStreak,
+      last7DaysHours,
+      last7DaysMoods,
+      accountAgeDays,
+    };
+
+    console.log('Computed insights:', result);
+    return result;
+  };
+
+  // Main effect
+useEffect(() => {
+  const loadInsights = async () => {
+    try {
+      setLoading(true);
+
+      const userId = localStorage.getItem('userId') || 'pseudo-user-123';
+      
+      // Cache key unique per user
+      const cacheKey = `insights_${userId}`;
+      const cached = localStorage.getItem(cacheKey);
+      
+      if (cached) {
+        const { data, timestamp } = JSON.parse(cached);
+        const ageInMinutes = (Date.now() - timestamp) / (1000 * 60);
+        
+        if (ageInMinutes < 10) { // Fresh: under 10 minutes
+          console.log('Insights loaded from cache 🐝');
+          setInsights(data);
+          setLoading(false);
+          return; // Skip fetch
+        }
+      }
+
+      console.log('Fetching fresh insights...');
+      const response = await axios.get(`http://localhost:5000/api/roadmaps?userId=${userId}`);
+      const roadmaps: Roadmap[] = response.data;
+
+      const allSteps = roadmaps.flatMap(rm => rm.steps);
+      const computedInsights = computeInsightsFromSteps(allSteps);
+
+      // Cache it with timestamp
+      localStorage.setItem(cacheKey, JSON.stringify({
+        data: computedInsights,
+        timestamp: Date.now()
+      }));
+
+      setInsights(computedInsights);
+    } catch (error: any) {
+      console.error('Error loading insights:', error);
+      
+      // Optional: fallback to old cache even if expired
+      const cacheKey = `insights_${localStorage.getItem('userId') || 'pseudo-user-123'}`;
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        const { data } = JSON.parse(cached);
+        setInsights(data);
+        console.log('Using expired cache as fallback');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  loadInsights();
+}, []); // Still only on mount — perfect
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-purple-900 via-pink-800 to-purple-900 flex items-center justify-center">
+        <p className="text-3xl animate-pulse">Crunching your learning data... 🐝</p>
+      </div>
+    );
+  }
+
+  if (!insights) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-purple-900 via-pink-800 to-purple-900 flex items-center justify-center flex-col text-white">
+        <p className="text-2xl mb-6">No learning data yet — start buzzing! 🐝</p>
+        <p className="text-xl">Complete your first step to see insights.</p>
+      </div>
+    );
+  }
+
   const {
     totalStepsCompleted,
     currentStreak,
@@ -19,13 +254,13 @@ const Insights = ({ onExit }: { onExit: () => void }) => {
     last7DaysHours,
     last7DaysMoods,
     accountAgeDays,
-  } = mockData; // Replace with real data later
+  } = insights;
 
   const avgDailyHours = last7DaysHours.reduce((a, b) => a + b, 0) / 7;
 
-  // Adaptive intensity level
   const isNewUser = accountAgeDays < 8;
-  let intensityLevel, color, message;
+
+  let intensityLevel: string, color: string, message: string;
 
   if (isNewUser) {
     if (avgDailyHours === 0) {
@@ -35,7 +270,7 @@ const Insights = ({ onExit }: { onExit: () => void }) => {
     } else if (avgDailyHours < 2) {
       intensityLevel = 'Great Start!';
       color = 'from-green-400 to-emerald-500';
-      message = 'Awesome consistency! You\'re building the habit perfectly.';
+      message = "Awesome consistency! You're building the habit perfectly.";
     } else if (avgDailyHours < 4) {
       intensityLevel = 'Buzzing Along!';
       color = 'from-cyan-400 to-blue-500';
@@ -46,36 +281,35 @@ const Insights = ({ onExit }: { onExit: () => void }) => {
       message = 'Wow, you\'re diving deep already! Remember to rest too 🐝';
     }
   } else {
-    // Established user
+    // Established user logic (same as your original, or my tweaked version)
     if (avgDailyHours < 2) {
-      intensityLevel = 'Ok';
+      intensityLevel = 'Room for More Buzz';
       color = 'from-yellow-400 to-orange-500';
       message = 'Room to buzz more! Even 30 extra minutes can make a big difference.';
     } else if (avgDailyHours < 4) {
-      intensityLevel = 'Decent';
+      intensityLevel = 'Solid Pace';
       color = 'from-green-400 to-teal-500';
       message = 'Solid progress — keep going!';
     } else if (avgDailyHours < 6) {
-      intensityLevel = 'Good';
+      intensityLevel = 'In the Sweet Spot';
       color = 'from-cyan-500 to-blue-600';
       message = 'Strong and steady — this is the sweet spot!';
     } else if (avgDailyHours < 8) {
-      intensityLevel = 'Excellent';
+      intensityLevel = 'Deep Flow State';
       color = 'from-indigo-500 to-purple-600';
       message = 'Outstanding dedication! You\'re in the zone.';
     } else if (avgDailyHours < 10) {
-      intensityLevel = 'Slightly Much';
+      intensityLevel = 'Power Learner';
       color = 'from-orange-500 to-red-500';
       message = 'Impressive dedication! Just watch for signs of fatigue.';
     } else {
-      intensityLevel = 'Too Much';
+      intensityLevel = 'Burnout Alert';
       color = 'from-red-600 to-pink-600';
       message = 'Warning: Risk of burnout – consider a rest day. Your brain needs recovery too! 🐝';
     }
   }
 
-  // Mood trend
-  const moodEmoji = last7DaysMoods[6] || '🙂'; // latest mood
+  const moodEmoji = last7DaysMoods[6] || '🙂';
   const moodMessage =
     moodEmoji === '🚀' ? 'You\'ve been in flow lately — amazing!' :
     moodEmoji === '🙂' ? 'Steady and positive — perfect pace.' :
@@ -83,53 +317,52 @@ const Insights = ({ onExit }: { onExit: () => void }) => {
     moodEmoji === '🐢' ? 'Feeling stuck? Shorter sessions or a break might help.' :
     'Feeling tired? Rest is part of progress. Come back fresh! 🐝';
 
+  // Return the same beautiful JSX as before, now with real data!
   return (
+    // ... (your full return JSX from previous version, using the real variables)
     <div className="min-h-screen bg-gradient-to-b from-purple-900 via-pink-800 to-purple-900 text-white pb-6">
-                    {/* Sticky Header */}
-<div className="sticky top-0 z-11 pb-2">
-  <div className="absolute inset-x-0 top-0 h-full bg-black/20 backdrop-blur-sm shadow-md rounded-b-2xl"></div>
-  
-  <div className="relative flex items-center justify-between px-1 py-4">
-        <button
-          className="
-            text-2xl
-            opacity-95
-            bg-gradient-to-b
-            from-green-900
-            via-green-600
-            to-green-900
-            hover:via-blue-700
-            rounded-full
-            w-10 h-10
-            shadow-xl
-            border border-green-700
-            flex items-center justify-center
-            transition-all hover:scale-105"
-          onClick={onExit}
-        >
-          ←
-        </button>
+            {/* Sticky Header */}
+      <div className="sticky top-0 z-10 pb-2">
+        <div className="absolute inset-x-0 top-0 h-full bg-black/20 backdrop-blur-sm shadow-md rounded-b-2xl"></div>
         
-    <h1 className="text-2xl font-bold absolute left-1/2 transform -translate-x-1/2">Insights</h1>
+        <div className="relative flex items-center justify-between px-1 py-4">
+          <button
+            className="
+              text-2xl
+              opacity-95
+              bg-gradient-to-b
+              from-green-900
+              via-green-600
+              to-green-900
+              hover:via-blue-700
+              rounded-full
+              w-10 h-10
+              shadow-xl
+              border border-green-700
+              flex items-center justify-center
+              transition-all hover:scale-105"
+            onClick={onExit}
+          >
+            ←
+          </button>
+          
+          <h1 className="text-2xl font-bold absolute left-1/2 transform -translate-x-1/2">Insights</h1>
+        </div>
       </div>
-  </div>
-
-{/* CONTENT */}
+      {/* Header and all cards — same as your original, just with real data */}
+      {/* Paste the return from your original here, replacing mock vars with real ones */}
       <div className="max-w-6xl mx-auto p-4">
         <h1 className="text-3xl md:text-6xl font-bold text-center mb-12 mt-4">
           Your Learning Insights 🐝📊
         </h1>
 
-        {/* Main Intensity Card */}
         <div className={`bg-gradient-to-br ${color} rounded-3xl p-10 shadow-2xl text-center mb-12`}>
           <h2 className="text-4xl font-bold mb-4">{intensityLevel}</h2>
           <p className="text-2xl mb-2">Average: {avgDailyHours.toFixed(1)} hours/day (last 7 days)</p>
           <p className="text-xl opacity-90">{message}</p>
         </div>
 
-        {/* Grid of Fun Cards */}
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
-          {/* Streak Card */}
           <div className="bg-gradient-to-br from-orange-500 to-yellow-500 rounded-3xl p-8 shadow-xl text-center">
             <p className="text-5xl mb-4">🔥</p>
             <h3 className="text-3xl font-bold mb-2">Current Streak</h3>
@@ -137,7 +370,6 @@ const Insights = ({ onExit }: { onExit: () => void }) => {
             <p className="text-lg opacity-80 mt-2">Longest: {longestStreak} days</p>
           </div>
 
-          {/* Steps Completed */}
           <div className="bg-gradient-to-br from-teal-500 to-cyan-600 rounded-3xl p-8 shadow-xl text-center">
             <p className="text-5xl mb-4">🎯</p>
             <h3 className="text-3xl font-bold mb-2">Steps Completed</h3>
@@ -145,7 +377,6 @@ const Insights = ({ onExit }: { onExit: () => void }) => {
             <p className="text-lg opacity-80">You're making real progress!</p>
           </div>
 
-          {/* Mood Card */}
           <div className="bg-gradient-to-br from-pink-500 to-purple-600 rounded-3xl p-8 shadow-xl text-center">
             <p className="text-6xl mb-4">{moodEmoji}</p>
             <h3 className="text-3xl font-bold mb-2">Recent Mood</h3>
@@ -153,7 +384,7 @@ const Insights = ({ onExit }: { onExit: () => void }) => {
           </div>
         </div>
 
-        {/* Motivational Footer */}
+        {/* Motivational footer */}
         <div className="text-center">
           <p className="text-3xl font-bold italic mb-4">
             Sustainable learning beats intense bursts every time.
