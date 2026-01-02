@@ -36,6 +36,13 @@ interface InsightsData {
   last7DaysHours: number[];
   last7DaysMoods: string[];
   accountAgeDays: number;
+// === NEW FIELDS ===
+  suggestedHours: number;        // Main suggestion for today
+  currentAvgHours: number;       // Average over last 7 days (useful for display)
+  timeScore: number;             // How well their time usage aligns with ideal (0–100)
+  moodScore: number;             // Average mood over active days last week (0–100)
+  streakScore: number;           // Consistency score (0–100)
+  totalPoints: number;           // Overall health score (0–100)
 }
 
 const Insights = ({ onExit }: { onExit: () => void }) => {
@@ -43,6 +50,7 @@ const Insights = ({ onExit }: { onExit: () => void }) => {
   const [loading, setLoading] = useState(true);
 
   // Helper: calculate active hours from one time log
+    // Helper: calculate active hours from one time log
   const calculateHoursFromLog = (log: TimeLog): number => {
     let seconds = 0;
 
@@ -160,14 +168,62 @@ const Insights = ({ onExit }: { onExit: () => void }) => {
       ? Math.floor((now.getTime() - new Date(firstActivityDate).setHours(0, 0, 0, 0)) / (1000 * 60 * 60 * 24)) + 1
       : 1;
 
-    const result: InsightsData = {
-      totalStepsCompleted: totalCompleted,
-      currentStreak,
-      longestStreak,
-      last7DaysHours,
-      last7DaysMoods,
-      accountAgeDays,
-    };
+    // New: Define static "ideal" boundaries as constants (linear ramp-up model)
+    const minHealthyHours = 1.0; // Slow zone floor
+    const idealHoursRampDays = 21; // Days to reach full ideal
+    const idealHours = Math.min(accountAgeDays / idealHoursRampDays * 4.0 + minHealthyHours, 5.0); // Linear: 1->5 over 21 days
+    const maxHealthyHours = idealHours + 2.0; // Steady/intense ceiling
+    const riskHours = maxHealthyHours + 3.0; // Risk starts here
+
+    // Compute avg hours (already have last7DaysHours)
+    const avgDailyHours = last7DaysHours.reduce((a, b) => a + b, 0) / 7;
+
+    // Mood mapping to scores (static map, no if/else)
+// Inside computeInsightsFromSteps — mood mapping (only your emojis)
+const moodScoreMap: Record<string, number> = {
+  '😴': 20,   // Tired
+  '😕': 40,   // Confused
+  '🙂': 70,   // Steady (default)
+  '🚀': 90,   // Flow
+  '🐢': 30,   // Stuck
+};
+    const moodScores = last7DaysMoods.map(m => moodScoreMap[m] ?? 70);
+    const avgMoodScore = moodScores.reduce((a, b) => a + b, 0) / moodScores.length;
+
+    // Time score: Linear distance from ideal (0-100, penalized for deviation)
+    const timeDeviation = Math.abs(avgDailyHours - idealHours);
+    const timeScore = Math.max(0, 100 - (timeDeviation / idealHours) * 100); // Closer to ideal = higher score
+
+    // Streak score: Linear saturation (0-100 based on consistency relative to age)
+    const maxExpectedStreak = Math.min(accountAgeDays, 30); // Cap at 30 for sanity
+    const streakScore = (currentStreak / maxExpectedStreak) * 100;
+
+    // Mood score: Already avgMoodScore (0-100)
+
+    // Total points: Weighted average (e.g., 40% time, 30% mood, 30% streak)
+    const totalPoints = (0.4 * timeScore + 0.3 * avgMoodScore + 0.3 * streakScore);
+
+    // Suggestion: Overlay user data on static ideals (adjust ideal linearly based on scores)
+    const moodAdjustment = avgMoodScore / 100; // 0-1 scale
+    const timeAdjustment = timeScore / 100; // Pull towards middle
+    const streakBoost = Math.min(streakScore / 100, 0.5); // Max +50%
+    const suggestedHours = idealHours * moodAdjustment * timeAdjustment * (1 + streakBoost);
+    const clampedSuggested = Math.max(minHealthyHours, Math.min(suggestedHours, maxHealthyHours)); // Stay in healthy zone
+
+const result: InsightsData = {
+  totalStepsCompleted: totalCompleted,
+  currentStreak,
+  longestStreak,
+  last7DaysHours,
+  last7DaysMoods,
+  accountAgeDays,
+  currentAvgHours: avgDailyHours,  // <--- ADD THIS LINE (it's required by your interface)
+  timeScore: Math.round(timeScore),
+  moodScore: Math.round(avgMoodScore),
+  streakScore: Math.round(streakScore),
+  totalPoints: Math.round(totalPoints),
+  suggestedHours: parseFloat(clampedSuggested.toFixed(1)),
+};
 
     console.log('Computed insights:', result);
     return result;
@@ -347,6 +403,7 @@ useEffect(() => {
           </button>
           
           <h1 className="text-2xl font-bold absolute left-1/2 transform -translate-x-1/2">Insights</h1>
+          
         </div>
       </div>
       {/* Header and all cards — same as your original, just with real data */}
@@ -355,6 +412,49 @@ useEffect(() => {
         <h1 className="text-3xl md:text-6xl font-bold text-center mb-12 mt-4">
           Your Learning Insights 🐝📊
         </h1>
+                  {insights && (
+  <>
+    {/* NEW: Suggestion Banner at the top */}
+    <div className="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-3xl p-8 shadow-2xl text-center mb-12 text-white">
+      <h2 className="text-3xl md:text-5xl font-bold mb-4">
+        Today's Recommendation
+      </h2>
+<p className="text-2xl md:text-4xl font-semibold mb-3">
+  {insights.accountAgeDays < 8 ? (
+    insights.suggestedHours <= 1 ? (
+      <>Get 30–60 minutes in today, and you're golden! 🐣</>
+    ) : (
+      <>Build momentum with 1–2 hours today — perfect start!</>
+    )
+  ) : insights.moodScore < 50 ? (
+    <>Your energy is low — aim for just {insights.suggestedHours.toFixed(1)} hours or rest</>
+  ) : insights.suggestedHours >= 5 ? (
+    <>You're crushing it! Go for {insights.suggestedHours.toFixed(1)} hours if you feel great 🚀</>
+  ) : (
+    <>Steady and strong — target {insights.suggestedHours.toFixed(1)} hours today</>
+  )}
+</p>
+      <p className="text-xl opacity-95 mt-4">
+        {insights.accountAgeDays < 8
+          ? "You're just starting — small consistent steps build big habits 🐣"
+          : insights.moodScore < 50
+          ? "Listen to your energy. Rest if needed, progress tomorrow 🐝"
+          : insights.timeScore > 80
+          ? "You're in a great rhythm — keep this sustainable pace! ✨"
+          : "Steady wins. Adjust slightly to hit the sweet spot."}
+      </p>
+    </div>
+
+    {/* Old intensity card — you can keep or simplify */}
+    {/* <div className={`bg-gradient-to-br ${color} rounded-3xl p-10 shadow-2xl text-center mb-12`}>
+      <h2 className="text-4xl font-bold mb-4">{intensityLevel}</h2>
+      <p className="text-2xl mb-2">
+        Average: {insights.currentAvgHours.toFixed(1)} hours/day (last 7 days)
+      </p>
+      <p className="text-xl opacity-90">{message}</p>
+    </div> */}
+  </>
+)}
 
         <div className={`bg-gradient-to-br ${color} rounded-3xl p-10 shadow-2xl text-center mb-12`}>
           <h2 className="text-4xl font-bold mb-4">{intensityLevel}</h2>
