@@ -284,7 +284,7 @@ useEffect(() => {
   };
 
   loadInsights();
-}, []); // Still only on mount — perfect
+}, []);
 
   if (loading) {
     return (
@@ -367,8 +367,8 @@ useEffect(() => {
 
   const moodEmoji = last7DaysMoods[6] || '🙂';
   const moodMessage =
-    moodEmoji === '🚀' ? 'You\'ve been in flow lately — amazing!' :
-    moodEmoji === '🙂' ? 'Steady and positive — perfect pace.' :
+    moodEmoji === '🚀' ? 'You\'ve been in flow lately - amazing!' :
+    moodEmoji === '🙂' ? 'Steady and positive - perfect pace.' :
     moodEmoji === '😕' ? 'Some confusion? Try reviewing basics or changing topics.' :
     moodEmoji === '🐢' ? 'Feeling stuck? Shorter sessions or a break might help.' :
     'Feeling tired? Rest is part of progress. Come back fresh! 🐝';
@@ -427,11 +427,11 @@ useEffect(() => {
       <>Build momentum with 1–2 hours today — perfect start!</>
     )
   ) : insights.moodScore < 50 ? (
-    <>Your energy is low — aim for just {insights.suggestedHours.toFixed(1)} hours or rest</>
+    <>Your energy is low - aim for just {insights.suggestedHours.toFixed(1)} hours or rest</>
   ) : insights.suggestedHours >= 5 ? (
     <>You're crushing it! Go for {insights.suggestedHours.toFixed(1)} hours if you feel great 🚀</>
   ) : (
-    <>Steady and strong — target {insights.suggestedHours.toFixed(1)} hours today</>
+    <>Steady and strong - target {insights.suggestedHours.toFixed(1)} hours today</>
   )}
 </p>
       <p className="text-xl opacity-95 mt-4">
