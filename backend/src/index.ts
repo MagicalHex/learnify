@@ -6,6 +6,9 @@ import roadmapRoutes from './routes/roadmapRoutes';
 import saveStepTimeRouter from './routes/saveStepTime';
 import authRouter from './routes/auth';
 
+// Compute
+import insightsRoutes from './routes/insightsRoutes';
+
 dotenv.config();
 
 const app = express();  // No .default()
@@ -18,12 +21,14 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// #########
-// Routes
+// ###############
+// ROUTES
 // #########
 
 // ROADMAPS
 app.use('/api/roadmaps', roadmapRoutes);
+// Compute roadmap data
+app.use('/api/insights', insightsRoutes);
 
 // SAVE STEP ACTIONS
 app.use('/api', saveStepTimeRouter); // this now handles:
