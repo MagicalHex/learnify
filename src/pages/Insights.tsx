@@ -151,12 +151,13 @@ const handleFeedback = (type: 'good' | 'less' | 'more') => {
       </div>
 
       <div className="max-w-6xl mx-auto p-4">
-        <h1 className="text-3xl md:text-6xl font-bold text-center mb-12 mt-4">
+        {/* <h1 className="text-3xl md:text-6xl font-bold text-center mb-12 mt-4">
           Your Learning Insights 🐝📊
-        </h1>
+        </h1> */}
 
 {/* Today's Recommendation Banner */}
-<div className="relative bg-gradient-to-r from-purple-600 via-purple-600 to-pink-600 rounded-3xl p-2 shadow-2xl text-center mb-12 border-4 border-white/20 overflow-hidden">
+<div className="relative bg-gradient-to-r from-purple-600 via-purple-600 to-pink-600 rounded-3xl p-2 shadow-2xl text-center
+ mb-12 mt-6 border-4 border-white/20 overflow-hidden">
   <div className="absolute inset-0 bg-white/5 rounded-3xl"></div>
   
   <div className="relative">
@@ -183,37 +184,38 @@ today
     
     {/* Buttons in a single responsive row */}
     <div className="flex flex-row justify-center items-stretch gap-2 px-4 max-w-4xl mx-auto">
-      <button
-        onClick={() => handleFeedback('good')}
-        className="flex-1 flex flex-col items-center justify-center gap-2 px-6 py-5 min-w-0
-                   bg-gradient-to-br from-green-500 to-emerald-600 
-                   rounded-2xl shadow-xl hover:shadow-2xl hover:scale-105 
-                   transition-all duration-300 border-2 border-white/30"
-      >
-        <span className="text-4xl">✅</span>
-        <span className="text-sm font-semibold">This is perfect pace</span>
-      </button>
 
       <button
         onClick={() => handleFeedback('less')}
         className="flex-1 flex flex-col items-center justify-center gap-2 px-6 py-5 min-w-0
                    bg-gradient-to-br from-yellow-500 to-amber-600 
-                   rounded-2xl shadow-xl hover:shadow-2xl hover:scale-105 
-                   transition-all duration-300 border-2 border-white/30"
+                   rounded-2xl shadow-sm shadow-orange-500/50 hover:shadow-2xl hover:scale-105 
+                   transition-all duration-300 border-2 border-white/50"
       >
-        <span className="text-4xl">🐢</span>
-        <span className="text-sm font-semibold">I need less effort</span>
+        <span className="text-4xl text-shadow-sm shadow-black-500">🐢</span>
+        <span className="text-sm font-semibold text-shadow-sm shadow-black-500">Lower my effort</span>
+      </button>
+
+            <button
+        onClick={() => handleFeedback('good')}
+        className="flex-1 flex flex-col items-center justify-center gap-2 px-6 py-5 min-w-0
+                   bg-gradient-to-br from-green-500 to-emerald-600 
+                   rounded-2xl shadow-sm shadow-green-500/50 hover:shadow-2xl hover:scale-105 
+                   transition-all duration-300 border-2 border-white/50"
+      >
+        <span className="text-4xl text-shadow-sm shadow-black-500">✅</span>
+        <span className="text-sm font-semibold text-shadow-sm shadow-black-500">This is perfect pace</span>
       </button>
 
       <button
         onClick={() => handleFeedback('more')}
-        className="flex-1 flex flex-col items-center justify-center gap-2 px-6 py-5 min-w-0
+        className="flex-1 flex flex-col items-center justify-center gap-2 p-6 min-w-0
                    bg-gradient-to-br from-purple-500 to-pink-600 
-                   rounded-2xl shadow-xl hover:shadow-2xl hover:scale-105 
-                   transition-all duration-300 border-2 border-white/30"
+                   rounded-2xl shadow-sm shadow-purple-500/50 hover:shadow-2xl hover:scale-105 
+                   transition-all duration-300 border-2 border-white/50"
       >
-        <span className="text-4xl">🚀</span>
-        <span className="text-sm font-semibold">I need more effort</span>
+        <span className="text-4xl text-shadow-sm shadow-black-500">🚀</span>
+        <span className="text-sm font-semibold text-shadow-sm shadow-black-500">Increase my effort</span>
       </button>
     </div>
 

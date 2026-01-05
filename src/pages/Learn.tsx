@@ -256,7 +256,8 @@ const canSaveTime = (step: typeof stepData[string] | undefined) => {
 const saveTime = async (
   stepId: string,
   source: 'timer' | 'manual',
-  mood: string
+  mood: string,
+  options?: { forceSave?: boolean }  // ← new optional flag
 ) => {
   const step = stepData[stepId];
 
@@ -268,7 +269,8 @@ const saveTime = async (
   }
 
   // Case 2: Valid time exists, but it's the unmodified default (only for manual)
-  if (source === 'manual' && step?.manualTimeNotModified) {
+// Only apply the unmodified-default guard if NOT force-saving
+  if (source === 'manual' && step?.manualTimeNotModified && !options?.forceSave) {
     setPendingMood(mood);
     setModalMode('confirmDefault');
     return;
@@ -921,12 +923,8 @@ const fetchStepSummaries = async (stepId: string): Promise<StepSummary[] | null>
 <button
   onClick={() => {
     if (pendingMood) {
-      // First: mark as modified so saveTime proceeds fully
-      updateStepData(step.id, { manualTimeNotModified: false });
-
-      // Then: save
-      setSelectedMood(pendingMood);
-      saveTime(step.id, 'manual', pendingMood);
+      // No need to touch manualTimeNotModified anymore!
+      saveTime(step.id, 'manual', pendingMood, { forceSave: true });
     }
     setModalMode(null);
     setPendingMood(null);

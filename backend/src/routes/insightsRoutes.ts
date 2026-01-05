@@ -39,7 +39,9 @@ const LOAD_FACTORS: Record<string, number> = {
 
 // Detect math-heavy roadmaps by title
 const isMathRoadmap = (title: string = ''): boolean => {
-  const mathKeywords = ['math', 'algebra', 'calculus', 'linear', 'ai', 'proof', 'geometry', 'statistics', 'discrete'];
+  const mathKeywords = ['math', 'algebra', 'calculus', 'linear', 'ai', 'proof', 'geometry', 'statistics', 'discrete', 'machine learning', 'ml',
+    'physics'
+  ];
   return mathKeywords.some(keyword => title.toLowerCase().includes(keyword));
 };
 
@@ -170,6 +172,36 @@ router.get('/', async (req, res) => {
       });
     });
 
+    console.log('[Insights RAW DATA]', {
+      userId,
+      totalSteps: allSteps.length,
+      totalTimeLogs: allSteps.flatMap(s => s.timeLogs || []).length,
+      sampleLogs: allSteps
+        .flatMap(s => s.timeLogs || [])
+        .slice(0, 10)
+        .map(log => ({
+          savedAt: log.savedAt,
+          manualFrom: log.manualFrom,
+          manualTo: log.manualTo,
+          hours: calculateHoursFromLog(log),
+          mood: log.mood || '🙂',
+          parsedDate: log.savedAt ? new Date(log.savedAt).toISOString() : 
+                     log.manualFrom ? new Date(log.manualFrom).toISOString() : 'INVALID',
+        })),
+      dailyRawHoursKeys: Object.keys(dailyRawHours).sort(),
+      dailyRawHoursValues: Object.fromEntries(
+        Object.entries(dailyRawHours)
+          .sort()
+          .map(([k, v]) => [k, parseFloat((v as number).toFixed(2))])
+      ),
+      todayKey: today.toISOString().split('T')[0],
+      todayRawHours: dailyRawHours[today.toISOString().split('T')[0]] || 0,
+      activeDates: Array.from(activeDates).sort(),
+      recentLogDays,
+      recentCutoff: recentCutoff.toISOString().split('T')[0],
+      isBeginnerMode: recentLogDays < 3,
+    });
+
     // Last 7 days (index 0 = 6 days ago, index 6 = today)
     const last7DaysRawHours: number[] = [];
     const last7DaysEffective: number[] = [];
@@ -252,7 +284,7 @@ router.get('/', async (req, res) => {
 
     // Use next step's category for final hours (fallback to thinking if unknown)
     // You can improve this by finding current/active step
-// With this:
+// Use "0-2 hours" instead of "2.0 hours"
 let targetEffective = isBeginnerMode ? 2.0 : best.suggestedEffective;
 if (todayMoodScore < 0.5) targetEffective *= 0.7;
 
