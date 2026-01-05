@@ -9,14 +9,28 @@ const calculateHoursFromLog = (log: any): number => {
   let seconds = 0;
 
   if (log.manualFrom && log.manualTo) {
-    const start = new Date(log.manualFrom);
-    const end = new Date(log.manualTo);
+    // Create full dates by assuming same day (or use savedAt as base)
+    const baseDate = log.savedAt ? new Date(log.savedAt) : new Date();
+    const year = baseDate.getFullYear();
+    const month = baseDate.getMonth();
+    const day = baseDate.getDate();
+
+    // Parse HH:MM strings
+    const parseTime = (timeStr: string): Date => {
+      const [hours, minutes] = timeStr.split(':').map(Number);
+      return new Date(year, month, day, hours, minutes);
+    };
+
+    const start = parseTime(log.manualFrom);
+    const end = parseTime(log.manualTo);
+
     if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
       seconds = (end.getTime() - start.getTime()) / 1000;
 
+      // Handle break
       if (log.manualBreakFrom && log.manualBreakTo) {
-        const bStart = new Date(log.manualBreakFrom);
-        const bEnd = new Date(log.manualBreakTo);
+        const bStart = parseTime(log.manualBreakFrom);
+        const bEnd = parseTime(log.manualBreakTo);
         if (!isNaN(bStart.getTime()) && !isNaN(bEnd.getTime())) {
           seconds -= (bEnd.getTime() - bStart.getTime()) / 1000;
         }
@@ -56,10 +70,26 @@ const prototypes = [
     gradient: 'from-yellow-400 to-amber-500',
   },
   {
+  name: 'Beginner - Solid Start',
+  vector: [0.3, 0.4, 0.7, 0.9, 0.1, 1.0],
+  suggestedEffective: 3.0,
+  message: 'Amazing first session! You’ve already put in solid work today — that’s how momentum starts 🔥',
+  intensity: 'Strong Start 🐝',
+  gradient: 'from-amber-500 to-orange-600',
+},
+{
+  name: 'Beginner - Deep Dive',
+  vector: [0.5, 0.6, 0.8, 0.95, 0.2, 1.0],
+  suggestedEffective: 4.0,
+  message: 'Whoa — you’re crushing it on your comeback! Deep focus detected. Ride this wave, but listen to your body tomorrow 🌊',
+  intensity: 'Beginner on Fire 🔥',
+  gradient: 'from-orange-600 to-red-600',
+},
+  {
     name: 'Stale / Low Activity',
     vector: [0.2, 0.15, 0.6, 0.6, 0.2, 0.0],
     suggestedEffective: 3.5,
-    message: 'Room to buzz more! Even 30–60 extra minutes today can spark progress.',
+    message: 'You are doing great! You can stop now, or buzz some more. Even 30–60 extra minutes today can spark progress.',
     intensity: 'Room for More Buzz',
     gradient: 'from-yellow-400 to-orange-500',
   },
@@ -114,11 +144,28 @@ router.get('/', async (req, res) => {
         colorGradient: 'from-yellow-400 to-amber-500',
       });
     }
+    console.log('[Insights] Roadmaps fetched:', roadmaps.length);
 
-    const allSteps = roadmaps.flatMap((rm: any) => rm.steps);
+roadmaps.forEach((rm, i) => {
+  console.log(`Roadmap ${i}:`, {
+    title: rm.title,
+    stepsCount: rm.steps?.length || 0,
+    stepsWithTimeLogs: rm.steps?.filter(s => s.timeLogs && s.timeLogs.length > 0).length || 0,
+    sampleStepWithLogs: rm.steps?.find(s => s.timeLogs && s.timeLogs.length > 0) || null,
+  });
+});
 
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+const allSteps = roadmaps.flatMap((rm: any) => rm.steps || []);
+
+console.log('[Insights] Total allSteps:', allSteps.length);
+console.log('[Insights] Steps with timeLogs:', allSteps.filter(s => s.timeLogs?.length > 0).length);
+
+const now = new Date();
+
+// Use UTC for consistent "today" across timezones
+const todayKey = now.toISOString().split('T')[0]; // e.g. '2026-01-05'
+
+const today = new Date(todayKey + 'T00:00:00.000Z'); // optional, for comparisons
 
     // Aggregation
     const dailyRawHours: Record<string, number> = {};
@@ -127,7 +174,8 @@ router.get('/', async (req, res) => {
     const activeDates = new Set<string>();
     let totalCompleted = 0;
     let recentLogDays = 0; // unique days in last 21 days
-    const recentCutoff = new Date(today);
+const recentCutoff = new Date(now.getTime() - 21 * 24 * 60 * 60 * 1000);
+// This subtracts exactly 21 days, regardless of timezone/DST
     recentCutoff.setDate(today.getDate() - 21);
 
     allSteps.forEach((step: any) => {
@@ -252,12 +300,12 @@ router.get('/', async (req, res) => {
     const todayEffective = last7DaysEffective[6];
 
     const userVector = [
-      normalize(avgEffective, 0, 10),
-      normalize(todayEffective, 0, 8),
-      avgMoodScore,
-      todayMoodScore * 1.3,
-      normalize(currentStreak, 0, 21),
-      isBeginnerMode ? 1 : 0,
+      normalize(avgEffective, 0, 10),        // 0: 7-day average effective hours (0–1)
+      normalize(todayEffective, 0, 8),       // 1: Today's effective hours (0–1)
+      avgMoodScore,                          // 2: Average mood last 7 days (0–1)
+      todayMoodScore * 1.3,                  // 3: Today's mood, boosted (0–1.3 capped)
+      normalize(currentStreak, 0, 21),       // 4: Streak strength (0–1)
+      isBeginnerMode ? 1 : 0,                // 5: Is this a new/low-activity user? (1 = yes)
     ];
 
     // Find best prototype
