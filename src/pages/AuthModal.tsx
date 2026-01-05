@@ -34,13 +34,28 @@ const AuthModal = ({ onExit }: { onExit: () => void }) => {
     }
 
     // Login mode: just continue (no real auth yet)
-    if (!isRegister) {
-      const userId = `user-${email.toLowerCase().trim()}-${Date.now()}`;
-      localStorage.setItem('userId', userId);
-      alert(`Welcome back! Logged in as ${email}`);
-      onExit();
-      return;
-    }
+if (!isRegister) {
+  setLoading(true);
+  try {
+    const response = await axios.post('http://localhost:5000/api/login', {
+      email: email.trim().toLowerCase(),
+      password: password.trim(),
+    });
+
+    const { userId } = response.data;
+
+    resetUserSession(userId);
+    alert(`Welcome back! Logged in as ${email}`);
+    onExit();
+  } catch (err: any) {
+    const msg = err.response?.data?.error || 'Login failed.';
+    setError(msg);
+  } finally {
+    setLoading(false);
+  }
+  return;
+}
+
 
     // Actual register
     setLoading(true);
@@ -61,6 +76,20 @@ const AuthModal = ({ onExit }: { onExit: () => void }) => {
       setLoading(false);
     }
   };
+  function resetUserSession(userId: string) {
+  Object.keys(localStorage).forEach(key => {
+    if (
+      key === 'userId' ||
+      key.startsWith('insights_') ||
+      key.startsWith('lastFeedbackTimestamp_')
+    ) {
+      localStorage.removeItem(key);
+    }
+  });
+
+  localStorage.setItem('userId', userId);
+}
+
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50">

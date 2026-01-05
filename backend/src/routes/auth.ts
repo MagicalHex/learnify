@@ -40,6 +40,7 @@ router.post('/register', async (req, res) => {
     const userId = newUser._id.toString();
 
     // Create initial empty roadmap
+    // Change this to some nice roadmaps
     await Roadmap.create({
       userId,
       title: 'My Learning Roadmap',
@@ -53,5 +54,30 @@ router.post('/register', async (req, res) => {
     res.status(500).json({ error: err.message || 'Server error' });
   }
 });
+
+// POST /api/login
+router.post('/login', async (req, res) => {
+  const { email, password } = req.body;
+
+  try {
+    const trimmedEmail = email.trim().toLowerCase();
+
+    const user = await User.findOne({ email: trimmedEmail });
+    if (!user) {
+      return res.status(400).json({ error: 'Invalid email or password' });
+    }
+
+    const ok = await bcrypt.compare(password, user.password || '');
+    if (!ok) {
+      return res.status(400).json({ error: 'Invalid email or password' });
+    }
+
+    res.json({ userId: user._id.toString() });
+  } catch (err: any) {
+    console.error('Login error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 
 export default router;
