@@ -4,7 +4,10 @@ import Roadmap from '../models/Roadmap';
 
 const router = express.Router();
 
-// Helper: calculate hours from a single time log
+// ############################
+// HELPERS
+// ###################
+//  calculate hours from a single time log
 const calculateHoursFromLog = (log: any): number => {
   let seconds = 0;
 
@@ -42,6 +45,43 @@ const calculateHoursFromLog = (log: any): number => {
 
   return Math.max(0, seconds / 3600);
 };
+// TIME SENTIMENT
+const getTimeGreeting = (date = new Date()) => {
+  const hour = date.getHours();
+
+  if (hour < 5) return 'Still awake 🌄';
+    if (hour < 11) return 'Good morning 🐣';
+  if (hour < 13) return 'Good lunch time ⛅';
+    if (hour < 16) return 'Good afternoon 🐥';
+  if (hour < 20) return 'Good evening 🌇';
+  return 'Good evening';
+};
+const composeMessage = (
+  baseMessage: string,
+  hasWorkedToday: boolean
+) => {
+  if (hasWorkedToday) return baseMessage;
+
+  const greeting = getTimeGreeting();
+  return `${greeting} — ${baseMessage}`;
+};
+
+// PHRASES WITH HELPER
+const pickRandom = <T,>(arr: T[]): T =>
+  arr[Math.floor(Math.random() * arr.length)];
+
+const freshStartMessages = [
+  'Start gently — even 30–60 minutes counts as a strong start today.',
+  'No pressure. 30–60 focused minutes is more than enough to begin.',
+  'You decide the pace today. Even 30–60 minutes moves things forward.',
+  'Set the tone lightly — 30–60 minutes is a perfectly valid start.',
+  'Momentum starts small — 30–60 minutes is all it takes today.',
+  'Nothing heavy required — 30–60 minutes is a great way to begin.',
+  'Just ease in. A short 30–60 minute session is enough for today.',
+  'Start light, but start. 30–60 minutes is the target.',
+  'Today isn’t about intensity — 30–60 minutes does the job.',
+];
+
 
 // Cognitive load factors per category
 const LOAD_FACTORS: Record<string, number> = {
@@ -297,7 +337,10 @@ const recentCutoff = new Date(now.getTime() - 21 * 24 * 60 * 60 * 1000);
       Math.max(0, Math.min(1, (val - min) / (max - min)));
 
     const avgEffective = last7DaysEffective.reduce((a, b) => a + b, 0) / 7;
-    const todayEffective = last7DaysEffective[6];
+const todayEffective = last7DaysEffective[6];
+
+const hasWorkedToday = todayEffective > 0.05; // This checks if user has any hours input today (if not, display 'Welcome ..')
+
 
     const userVector = [
       normalize(avgEffective, 0, 10),        // 0: 7-day average effective hours (0–1)
@@ -316,15 +359,30 @@ const recentCutoff = new Date(now.getTime() - 21 * 24 * 60 * 60 * 1000);
       return magA && magB ? dot / (magA * magB) : 0;
     };
 
-    let best = prototypes[2]; // default healthy
-    let bestSim = -1;
-    prototypes.forEach(p => {
-      const sim = cosineSimilarity(userVector, p.vector);
-      if (sim > bestSim) {
-        bestSim = sim;
-        best = p;
-      }
-    });
+let best;
+
+if (!hasWorkedToday) {
+  const message = pickRandom(freshStartMessages);
+
+  best = {
+    name: 'Fresh Start',
+    suggestedEffective: isBeginnerMode ? 1.5 : 2.0,
+    message: message, // no greeting here
+    intensity: 'Fresh Start',
+    gradient: 'from-yellow-300 to-orange-400',
+  };
+} else {
+  let bestSim = -1;
+  best = prototypes[2]; // fallback
+
+  prototypes.forEach(p => {
+    const sim = cosineSimilarity(userVector, p.vector);
+    if (sim > bestSim) {
+      bestSim = sim;
+      best = p;
+    }
+  });
+}
 
     // Final suggestion
     let suggestedEffective = isBeginnerMode ? 2.0 : best.suggestedEffective;
@@ -392,7 +450,8 @@ suggestedHours: suggestedHoursRange,
       moodScore,
       streakScore,
       totalPoints,
-      message: best.message,
+      // message: best.message,
+        message: composeMessage(best.message, hasWorkedToday),
       intensityLevel: best.intensity,
       colorGradient: best.gradient,
       latestLogTimestamp, // ISO string or null

@@ -56,7 +56,6 @@ if (!isRegister) {
   return;
 }
 
-
     // Actual register
     setLoading(true);
     try {
