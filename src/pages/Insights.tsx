@@ -18,6 +18,8 @@ suggestedHours: string;  // ← Now a string, e.g. "0–2 hours"
   colorGradient: string;
 // NEW
   latestLogTimestamp: string | null;  // ISO string from most recent log
+  // Added 2026-03-13
+  todayHours: number;         // actual summed hours today
 }
 
 const Insights = ({ onExit }: { onExit: () => void }) => {
@@ -164,6 +166,14 @@ const handleFeedback = (type: 'good' | 'less' | 'more') => {
     <h2 className="text-2xl md:text-6xl font-extrabold mb-6 text-white drop-shadow-lg">
       Today's Recommendation
     </h2>
+    {/* Added 2026-03-13 */}
+    <p className="text-xl md:text-2xl opacity-95 max-w-3xl mx-auto px-4 leading-relaxed mb-8">
+          You've already done{" "}
+          <span className="text-yellow-300 drop-shadow font-semibold">
+            {insights.todayHours?.toFixed(1) ?? '0.0'} hours
+          </span>{" "}
+          today
+        </p>
     
     <p className="text-2xl md:text-5xl font-bold mb-6">
       Target{" "}

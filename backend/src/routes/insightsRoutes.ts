@@ -437,6 +437,9 @@ const suggestedHoursRange = `0–${finalUpper} hours`;
       });
     });
 
+    // Find today's actual hours (already computed) // Added 2026-03-13
+const todayHours = dailyRawHours[todayKey] || 0;
+
     // Response
     res.json({
       totalStepsCompleted: totalCompleted,
@@ -455,7 +458,9 @@ suggestedHours: suggestedHoursRange,
       intensityLevel: best.intensity,
       colorGradient: best.gradient,
       latestLogTimestamp, // ISO string or null
-      justFinishedSession: false // we let frontend decide — simpler and safer
+      justFinishedSession: false, // we let frontend decide — simpler and safer
+      // Added 2026-03-13
+      todayHours: parseFloat(todayHours.toFixed(2)),   // e.g. 1.75
     });
 
   } catch (error: any) {
